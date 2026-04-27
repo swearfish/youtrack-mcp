@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 
@@ -458,13 +459,5 @@ func writeFileAtomic(path string, data []byte, defaultMode os.FileMode) (err err
 }
 
 func deepEqual(left any, right any) bool {
-	leftJSON, err := json.Marshal(left)
-	if err != nil {
-		return false
-	}
-	rightJSON, err := json.Marshal(right)
-	if err != nil {
-		return false
-	}
-	return string(leftJSON) == string(rightJSON)
+	return reflect.DeepEqual(left, right)
 }
