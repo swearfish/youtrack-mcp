@@ -35,13 +35,13 @@ func addTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("fetch"),
 		Annotations: readOnlyToolAnnotations(),
-		Description: "Fetch a YouTrack ticket by explicit `ticket` and return structured JSON issue data, including `custom_fields` plus synthesized fields like `status`. Set `attachments=true` to inline text attachment content into the JSON response, and use `attachment_path` to download attachments to disk and return saved file paths in the JSON.",
+		Description: "Fetch a YouTrack ticket by explicit `ticket`. Returns structured JSON issue data, including `custom_fields` and synthesized fields like `status`. Set `attachments=true` to inline text attachment content. Use `attachment_path` to download attachments to disk and return their saved paths.",
 	}, fetchYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("fetch_markdown"),
 		Annotations: readOnlyToolAnnotations(),
-		Description: "Fetch a YouTrack ticket by explicit `ticket` and return rendered Markdown. Set `attachments=true` to inline text attachment sections, and use `attachment_path` to download attachments to disk and include the saved paths in the Markdown.",
+		Description: "Fetch a YouTrack ticket by explicit `ticket`. Returns rendered Markdown. Set `attachments=true` to inline text attachment sections. Use `attachment_path` to download attachments to disk and include their saved paths.",
 	}, fetchYouTrackTicketMarkdown)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
