@@ -228,6 +228,42 @@ func TestLinkTicketsQuotesPunctuatedRelation(t *testing.T) {
 	}
 }
 
+func TestUnlinkTicketsPreservesRequestedRelation(t *testing.T) {
+	t.Parallel()
+
+	state := newFakeState()
+	state.issues["YT-39"]["links"] = []map[string]any{{
+		"id":        "80-0",
+		"direction": "INWARD",
+		"linkType": map[string]any{
+			"name":           "depends on",
+			"sourceToTarget": "depends on",
+			"targetToSource": "is required for",
+		},
+		"issues": []map[string]any{{
+			"id":         "2-40",
+			"idReadable": "YT-40",
+			"summary":    "Linked issue",
+		}},
+	}}
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	result, err := client.UnlinkTickets(context.Background(), "YT-39", "YT-40", "depends on")
+	if err != nil {
+		t.Fatalf("unlink tickets: %v", err)
+	}
+	if result.Relation != "depends on" {
+		t.Fatalf("expected unlink relation to echo request, got %+v", result)
+	}
+}
+
 func TestUpdateTicketStatusSurfacesCommandErrors(t *testing.T) {
 	t.Parallel()
 

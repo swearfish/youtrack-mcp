@@ -117,7 +117,7 @@ func (c *Client) UnlinkTickets(ctx context.Context, ticketID string, linkedTicke
 	return UnlinkResult{
 		Ticket:         ticketID,
 		UnlinkedTicket: linkedTicketID,
-		Relation:       displayRelationName(linkData),
+		Relation:       firstNonEmpty(strings.TrimSpace(relation), displayRelationName(linkData)),
 	}, nil
 }
 
