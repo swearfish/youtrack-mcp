@@ -562,6 +562,19 @@ func TestFindStatusFieldPrefersTypedStateField(t *testing.T) {
 	}
 }
 
+func TestQuoteCommandValueEscapesBackslashesAndQuotes(t *testing.T) {
+	t.Parallel()
+
+	value := `C:\Users\O'Brien`
+	quoted := quoteCommandValue(value)
+	if quoted != `'C:\\Users\\O\'Brien'` {
+		t.Fatalf("unexpected quoted value: %q", quoted)
+	}
+	if parsed := parseFakeCommandValue(quoted); parsed != value {
+		t.Fatalf("expected quoted value to round-trip, got %q", parsed)
+	}
+}
+
 func TestStoreAttachmentDoesNotOverwriteExistingFile(t *testing.T) {
 	t.Parallel()
 
@@ -926,7 +939,7 @@ func parseFakeQuotedValue(value string) string {
 	if len(value) >= 2 && strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
 		value = value[1 : len(value)-1]
 	}
-	return strings.ReplaceAll(value, `\'`, `'`)
+	return strings.NewReplacer(`\\`, `\`, `\'`, `'`).Replace(value)
 }
 
 func findClosingQuote(value string) int {

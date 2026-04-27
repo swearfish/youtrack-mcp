@@ -580,7 +580,7 @@ func (c *Client) applyCommand(ctx context.Context, query string, ticketIDs []str
 }
 
 func quoteCommandValue(value string) string {
-	escaped := strings.ReplaceAll(value, `'`, `\'`)
+	escaped := strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(value)
 	return "'" + escaped + "'"
 }
 
