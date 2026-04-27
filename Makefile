@@ -2,7 +2,8 @@ APP := youtrack-mcp
 DIST := dist
 MAIN := ./cmd/youtrack-mcp
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -X youtrack-mcp/internal/version.Value=$(VERSION)
+LDFLAGS := -s -w -X youtrack-mcp/internal/version.Value=$(VERSION)
+GO_BUILD_FLAGS := -trimpath
 TARGETS := \
 	darwin/amd64 \
 	darwin/arm64 \
@@ -21,7 +22,7 @@ test:
 
 build:
 	@mkdir -p $(DIST)
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(DIST)/$(APP) $(MAIN)
+	CGO_ENABLED=0 go build $(GO_BUILD_FLAGS) -ldflags "$(LDFLAGS)" -o $(DIST)/$(APP) $(MAIN)
 
 cross-build:
 	@mkdir -p $(DIST)
@@ -31,7 +32,7 @@ cross-build:
 		output="$(DIST)/$(APP)-$${os}-$${arch}"; \
 		if [ "$$os" = "windows" ]; then output="$$output.exe"; fi; \
 		echo "Building $$output"; \
-		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -ldflags "$(LDFLAGS)" -o "$$output" $(MAIN) || exit 1; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build $(GO_BUILD_FLAGS) -ldflags "$(LDFLAGS)" -o "$$output" $(MAIN) || exit 1; \
 	done
 
 clean:
