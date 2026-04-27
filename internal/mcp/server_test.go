@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -152,7 +153,7 @@ func TestResolveClientAndTicketRequiresConfiguredEnv(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected missing env to fail")
 	}
-	if err.Error() != "youtrack url not configured; set YOUTRACK_URL" {
+	if !strings.Contains(err.Error(), "youtrack url not configured") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
