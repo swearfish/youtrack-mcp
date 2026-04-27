@@ -12,12 +12,21 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"youtrack-mcp/internal/config"
 )
 
-func init() {
-	_ = os.Setenv(config.EnvYouTrackInsecure, "1")
+func newHTTPTestClient(t *testing.T, baseURL string, httpClient *http.Client) *Client {
+	t.Helper()
+	trimmedURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	parsedBase, err := parseYouTrackURL(trimmedURL, true)
+	if err != nil {
+		t.Fatalf("parse test client url: %v", err)
+	}
+	return &Client{
+		baseURL:    trimmedURL,
+		parsedBase: parsedBase,
+		apiToken:   "perm:test",
+		httpClient: httpClient,
+	}
 }
 
 func TestNewClientRejectsInsecureHTTPURLByDefault(t *testing.T) {
@@ -44,10 +53,7 @@ func TestClientOperations(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	ctx := context.Background()
 
@@ -149,10 +155,7 @@ func TestCreateTicketFallsBackToAdminProjectsEndpoint(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	created, err := client.CreateTicket(context.Background(), "YT", "New ticket", "desc", nil)
 	if err != nil {
@@ -172,10 +175,7 @@ func TestUpdateTicketStatusQuotesPunctuatedStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	statusUpdate, err := client.UpdateTicketStatus(context.Background(), "YT-39", "Done, verified")
 	if err != nil {
@@ -207,10 +207,7 @@ func TestLinkTicketsQuotesPunctuatedRelation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	linkResult, err := client.LinkTickets(context.Background(), "YT-39", "YT-40", "depends on, maybe")
 	if err != nil {
@@ -251,10 +248,7 @@ func TestUnlinkTicketsPreservesRequestedRelation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	result, err := client.UnlinkTickets(context.Background(), "YT-39", "YT-40", "depends on")
 	if err != nil {
@@ -274,12 +268,9 @@ func TestUpdateTicketStatusSurfacesCommandErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.UpdateTicketStatus(context.Background(), "YT-39", "Blocked")
+	_, err := client.UpdateTicketStatus(context.Background(), "YT-39", "Blocked")
 	if err == nil {
 		t.Fatalf("expected command error to be surfaced")
 	}
@@ -310,12 +301,9 @@ func TestLinkTicketsSurfacesCommandErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.LinkTickets(context.Background(), "YT-39", "YT-40", "invalid relation")
+	_, err := client.LinkTickets(context.Background(), "YT-39", "YT-40", "invalid relation")
 	if err == nil {
 		t.Fatalf("expected link command error to be surfaced")
 	}
@@ -333,10 +321,7 @@ func TestStatusCommandsSupportMultiWordFieldNames(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	statuses, err := client.GetTicketStatuses(context.Background(), "YT-39")
 	if err != nil {
@@ -369,10 +354,7 @@ func TestFetchStoryIncludesDownloadedAttachments(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	dir := t.TempDir()
 	story, err := client.FetchStory(context.Background(), "YT-39", true, dir)
@@ -411,10 +393,7 @@ func TestFetchStoryDoesNotSendAuthToCrossOriginAttachmentURL(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	story, err := client.FetchStory(context.Background(), "YT-39", true, "")
 	if err != nil {
@@ -476,10 +455,7 @@ func TestFetchTicketIncludesStructuredAttachments(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	dir := t.TempDir()
 	issue, err := client.FetchTicket(context.Background(), "YT-39", true, dir)
@@ -518,12 +494,9 @@ func TestFetchTicketRejectsExcessiveTotalAttachmentBytes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.FetchTicket(context.Background(), "YT-39", true, "")
+	_, err := client.FetchTicket(context.Background(), "YT-39", true, "")
 	if err == nil {
 		t.Fatalf("expected total attachment size limit to fail")
 	}
@@ -551,10 +524,7 @@ func TestFetchTicketTruncatesInlineAttachmentContent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	issue, err := client.FetchTicket(context.Background(), "YT-39", true, "")
 	if err != nil {
@@ -584,10 +554,7 @@ func TestFetchStoryNotesTruncatedInlineAttachmentContent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	story, err := client.FetchStory(context.Background(), "YT-39", true, "")
 	if err != nil {
@@ -610,12 +577,9 @@ func TestFetchStoryAttachmentDownloadFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.FetchStory(context.Background(), "YT-39", true, "")
+	_, err := client.FetchStory(context.Background(), "YT-39", true, "")
 	if err == nil {
 		t.Fatalf("expected attachment download failure")
 	}
@@ -631,12 +595,9 @@ func TestFetchTicketReturnsNotFoundError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.FetchTicket(context.Background(), "YT-404", false, "")
+	_, err := client.FetchTicket(context.Background(), "YT-404", false, "")
 	if err == nil {
 		t.Fatalf("expected missing ticket to fail")
 	}
@@ -652,12 +613,9 @@ func TestCreateTicketRejectsMalformedCustomFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.CreateTicket(context.Background(), "YT", "Bad ticket", "desc", "{not valid json}")
+	_, err := client.CreateTicket(context.Background(), "YT", "Bad ticket", "desc", "{not valid json}")
 	if err == nil {
 		t.Fatalf("expected malformed custom_fields to fail")
 	}
@@ -701,10 +659,7 @@ func TestFetchTicketRetriesTransientGetFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
 	issue, err := client.FetchTicket(context.Background(), "YT-39", false, "")
 	if err != nil {
@@ -844,12 +799,9 @@ func TestFetchStoryRejectsOversizedAttachment(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.FetchStory(context.Background(), "YT-39", true, "")
+	_, err := client.FetchStory(context.Background(), "YT-39", true, "")
 	if err == nil {
 		t.Fatalf("expected oversized attachment to fail")
 	}
@@ -1202,12 +1154,9 @@ func TestResolveProjectRequiresExactMatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, "perm:test", server.Client())
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
+	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	_, err = client.resolveProject(context.Background(), "FOO")
+	_, err := client.resolveProject(context.Background(), "FOO")
 	if err == nil {
 		t.Fatalf("expected resolveProject to fail on ambiguous partial match")
 	}

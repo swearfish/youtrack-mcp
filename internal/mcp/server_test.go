@@ -14,16 +14,18 @@ import (
 	"youtrack-mcp/internal/config"
 )
 
-func init() {
-	_ = os.Setenv(config.EnvYouTrackInsecure, "1")
+func setYouTrackTestEnv(t *testing.T, baseURL string) {
+	t.Helper()
+	t.Setenv(config.EnvYouTrackInsecure, "1")
+	t.Setenv(config.EnvYouTrackURL, baseURL)
+	t.Setenv(config.EnvYouTrackToken, "perm:test")
 }
 
 func TestStructuredFetchReturnsIssue(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
-	t.Setenv(config.EnvYouTrackURL, server.URL)
-	t.Setenv(config.EnvYouTrackToken, "perm:test")
+	setYouTrackTestEnv(t, server.URL)
 
 	result, payload, err := fetchYouTrackTicket(context.Background(), nil, fetchTicketArgs{
 		Ticket: "YT-39",
@@ -47,8 +49,7 @@ func TestSearchReturnsStructuredIssues(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
-	t.Setenv(config.EnvYouTrackURL, server.URL)
-	t.Setenv(config.EnvYouTrackToken, "perm:test")
+	setYouTrackTestEnv(t, server.URL)
 
 	result, payload, err := searchYouTrackTickets(context.Background(), nil, searchArgs{
 		Query: "update",
@@ -70,8 +71,7 @@ func TestMarkdownFetchReturnsText(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
-	t.Setenv(config.EnvYouTrackURL, server.URL)
-	t.Setenv(config.EnvYouTrackToken, "perm:test")
+	setYouTrackTestEnv(t, server.URL)
 
 	result, payload, err := fetchYouTrackTicketMarkdown(context.Background(), nil, fetchTicketMarkdownArgs{
 		Ticket: "YT-39",
@@ -98,8 +98,7 @@ func TestStructuredFetchSupportsAttachments(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
-	t.Setenv(config.EnvYouTrackURL, server.URL)
-	t.Setenv(config.EnvYouTrackToken, "perm:test")
+	setYouTrackTestEnv(t, server.URL)
 
 	attachmentDir := t.TempDir()
 	result, payload, err := fetchYouTrackTicket(context.Background(), nil, fetchTicketArgs{
@@ -155,8 +154,7 @@ func TestUpdateRejectsMissingFieldsBeforeCallingYouTrack(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
-	t.Setenv(config.EnvYouTrackURL, server.URL)
-	t.Setenv(config.EnvYouTrackToken, "perm:test")
+	setYouTrackTestEnv(t, server.URL)
 
 	_, _, err := updateYouTrackTicket(context.Background(), nil, updateTicketArgs{
 		Ticket: "YT-39",
@@ -175,8 +173,7 @@ func TestResolveClientCachesByConfiguredTuple(t *testing.T) {
 
 	clearClientCache()
 	t.Cleanup(clearClientCache)
-	t.Setenv(config.EnvYouTrackURL, server.URL)
-	t.Setenv(config.EnvYouTrackToken, "perm:test")
+	setYouTrackTestEnv(t, server.URL)
 
 	first, err := resolveClient()
 	if err != nil {
