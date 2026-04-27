@@ -117,13 +117,14 @@ The handler layer is thin by design: it resolves credentials, validates required
 
 ### YouTrack client
 
-`internal/youtrack/client.go` contains the HTTP integration with the YouTrack REST API, including:
+`internal/youtrack` is split into focused files instead of one monolithic client file:
 
-- story fetching with markdown rendering
-- project lookup for ticket creation
-- ticket updates and status changes
-- link and unlink operations
-- optional attachment download and inline text extraction
+- `client.go` for client construction and URL validation
+- `issues.go` for ticket fetch/search/create/update flows
+- `commands.go` for statuses, links, and YouTrack command execution
+- `attachments.go` for attachment download/storage and markdown rendering helpers
+- `http.go` for shared request/retry/body-limit handling
+- `serialize.go` and `types.go` for serialization, helpers, and shared types/constants
 
 This package is the main domain layer of the application.
 

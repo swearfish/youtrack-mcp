@@ -1,0 +1,125 @@
+package youtrack
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+)
+
+func (c *Client) doJSON(ctx context.Context, method string, requestPath string, query map[string]string, payload any, out any) error {
+	endpoint, err := url.Parse(c.baseURL + requestPath)
+	if err != nil {
+		return fmt.Errorf("build request url: %w", err)
+	}
+	if len(query) > 0 {
+		values := endpoint.Query()
+		for key, value := range query {
+			values.Set(key, value)
+		}
+		endpoint.RawQuery = values.Encode()
+	}
+
+	var bodyReader io.Reader
+	var data []byte
+	if payload != nil {
+		data, err = json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("marshal request payload: %w", err)
+		}
+	}
+
+	attempts := 1
+	if method == http.MethodGet {
+		attempts = maxHTTPGetAttempts
+	}
+
+	var lastErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		if data != nil {
+			bodyReader = bytes.NewReader(data)
+		} else {
+			bodyReader = nil
+		}
+
+		request, err := http.NewRequestWithContext(ctx, method, endpoint.String(), bodyReader)
+		if err != nil {
+			return fmt.Errorf("build request: %w", err)
+		}
+		request.Header.Set("Authorization", "Bearer "+c.apiToken)
+		request.Header.Set("Accept", "application/json")
+		if payload != nil {
+			request.Header.Set("Content-Type", "application/json")
+		}
+
+		response, err := c.httpClient.Do(request)
+		if err != nil {
+			lastErr = fmt.Errorf("perform request: %w", err)
+			if shouldRetryGET(attempt, 0, err) {
+				continue
+			}
+			return lastErr
+		}
+
+		body, readErr := readLimitedBody(response.Body, maxJSONResponseBytes, "JSON response")
+		response.Body.Close()
+		if readErr != nil {
+			return fmt.Errorf("read response: %w", readErr)
+		}
+		if response.StatusCode >= 400 {
+			lastErr = fmt.Errorf("youtrack request failed: %s", formatHTTPError(response.StatusCode, body))
+			if shouldRetryGET(attempt, response.StatusCode, nil) {
+				continue
+			}
+			return lastErr
+		}
+		if out == nil || len(body) == 0 {
+			return nil
+		}
+		if err := json.Unmarshal(body, out); err != nil {
+			return fmt.Errorf("decode response: %w", err)
+		}
+		return nil
+	}
+
+	return lastErr
+}
+
+func shouldRetryGET(attempt int, statusCode int, err error) bool {
+	if attempt >= maxHTTPGetAttempts-1 {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+	switch statusCode {
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
+func readLimitedBody(reader io.Reader, limit int64, label string) ([]byte, error) {
+	limited := io.LimitReader(reader, limit+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > limit {
+		return nil, fmt.Errorf("%s exceeds %d bytes", label, limit)
+	}
+	return body, nil
+}
+
+func formatHTTPError(statusCode int, body []byte) string {
+	message := strings.TrimSpace(string(body))
+	if message == "" {
+		return fmt.Sprintf("status %d", statusCode)
+	}
+	return fmt.Sprintf("status %d: %s", statusCode, message)
+}
