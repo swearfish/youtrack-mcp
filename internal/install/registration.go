@@ -152,9 +152,9 @@ func defaultVSCodeConfigPath() string {
 	case "windows":
 		return filepath.Join(os.Getenv("APPDATA"), "Code", "User", "mcp.json")
 	case "darwin":
-		return filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Code", "User", "mcp.json")
+		return filepath.Join(userHomeDir(), "Library", "Application Support", "Code", "User", "mcp.json")
 	default:
-		return filepath.Join(os.Getenv("HOME"), ".config", "Code", "User", "mcp.json")
+		return filepath.Join(userHomeDir(), ".config", "Code", "User", "mcp.json")
 	}
 }
 
@@ -162,7 +162,14 @@ func defaultCopilotConfigPath() string {
 	if override := os.Getenv(config.EnvCopilotMCPConfigPath); override != "" {
 		return override
 	}
-	return filepath.Join(os.Getenv("HOME"), ".copilot", "mcp-config.json")
+	return filepath.Join(userHomeDir(), ".copilot", "mcp-config.json")
+}
+
+func userHomeDir() string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return home
+	}
+	return os.Getenv("HOME")
 }
 
 func resolveBinaryPath(override string) (string, error) {
