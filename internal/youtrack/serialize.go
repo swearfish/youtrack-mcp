@@ -3,6 +3,7 @@ package youtrack
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -225,6 +226,9 @@ func int64Value(value any) int64 {
 	case uint32:
 		return int64(typed)
 	case uint64:
+		if typed > math.MaxInt64 {
+			return math.MaxInt64
+		}
 		return int64(typed)
 	case float64:
 		return int64(typed)

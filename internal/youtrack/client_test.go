@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -782,6 +783,9 @@ func TestInt64ValueSupportsUnsignedIntegers(t *testing.T) {
 	}
 	if got := int64Value(uint32(99)); got != 99 {
 		t.Fatalf("expected uint32 to convert to 99, got %d", got)
+	}
+	if got := int64Value(uint64(math.MaxInt64) + 1); got != math.MaxInt64 {
+		t.Fatalf("expected oversized uint64 to clamp to MaxInt64, got %d", got)
 	}
 }
 
