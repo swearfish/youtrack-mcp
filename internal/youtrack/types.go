@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 const (
@@ -75,6 +76,7 @@ var reservedWindowsFileNames = map[string]struct{}{
 
 type Client struct {
 	baseURL    string
+	parsedBase *url.URL
 	apiToken   string
 	httpClient *http.Client
 }

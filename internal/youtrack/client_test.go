@@ -789,6 +789,23 @@ func TestInt64ValueSupportsUnsignedIntegers(t *testing.T) {
 	}
 }
 
+func TestResolveEndpointPreservesQueryString(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient("https://example.test/youtrack", "perm:token", &http.Client{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	endpoint, err := client.resolveEndpoint("/api/issues?fields=idReadable")
+	if err != nil {
+		t.Fatalf("resolve endpoint: %v", err)
+	}
+	if got := endpoint.String(); got != "https://example.test/youtrack/api/issues?fields=idReadable" {
+		t.Fatalf("unexpected resolved endpoint: %s", got)
+	}
+}
+
 func TestStoreAttachmentDoesNotOverwriteExistingFile(t *testing.T) {
 	t.Parallel()
 

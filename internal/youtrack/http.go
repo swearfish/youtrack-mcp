@@ -14,7 +14,7 @@ import (
 )
 
 func (c *Client) doJSON(ctx context.Context, method string, requestPath string, query map[string]string, payload any, out any) error {
-	endpoint, err := url.Parse(c.baseURL + requestPath)
+	endpoint, err := c.resolveEndpoint(requestPath)
 	if err != nil {
 		return fmt.Errorf("build request url: %w", err)
 	}
@@ -95,6 +95,19 @@ func (c *Client) doJSON(ctx context.Context, method string, requestPath string, 
 	}
 
 	return lastErr
+}
+
+func (c *Client) resolveEndpoint(requestPath string) (*url.URL, error) {
+	if c.parsedBase == nil {
+		return nil, fmt.Errorf("missing parsed base url")
+	}
+	endpoint := c.parsedBase.JoinPath(requestPath)
+	if strings.Contains(requestPath, "?") {
+		pathOnly, rawQuery, _ := strings.Cut(requestPath, "?")
+		endpoint = c.parsedBase.JoinPath(pathOnly)
+		endpoint.RawQuery = rawQuery
+	}
+	return endpoint, nil
 }
 
 func shouldRetryGET(attempt int, statusCode int, err error) bool {

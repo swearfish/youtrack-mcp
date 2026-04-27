@@ -15,7 +15,8 @@ func NewClient(baseURL string, apiToken string, httpClient *http.Client) (*Clien
 	if trimmedURL == "" {
 		return nil, fmt.Errorf("youtrack url is required")
 	}
-	if err := validateYouTrackURL(trimmedURL, allowInsecureYouTrack()); err != nil {
+	parsedBase, err := parseYouTrackURL(trimmedURL, allowInsecureYouTrack())
+	if err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(apiToken) == "" {
@@ -30,20 +31,26 @@ func NewClient(baseURL string, apiToken string, httpClient *http.Client) (*Clien
 	}
 	return &Client{
 		baseURL:    trimmedURL,
+		parsedBase: parsedBase,
 		apiToken:   strings.TrimSpace(apiToken),
 		httpClient: httpClient,
 	}, nil
 }
 
 func validateYouTrackURL(baseURL string, allowInsecure bool) error {
+	_, err := parseYouTrackURL(baseURL, allowInsecure)
+	return err
+}
+
+func parseYouTrackURL(baseURL string, allowInsecure bool) (*url.URL, error) {
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
-		return fmt.Errorf("parse youtrack url: %w", err)
+		return nil, fmt.Errorf("parse youtrack url: %w", err)
 	}
 	if strings.EqualFold(parsedURL.Scheme, "http") && !allowInsecure {
-		return fmt.Errorf("refusing insecure youtrack url %q; set %s=1 to allow http", baseURL, config.EnvYouTrackInsecure)
+		return nil, fmt.Errorf("refusing insecure youtrack url %q; set %s=1 to allow http", baseURL, config.EnvYouTrackInsecure)
 	}
-	return nil
+	return parsedURL, nil
 }
 
 func allowInsecureYouTrack() bool {
