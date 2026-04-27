@@ -1,0 +1,8 @@
+/dist/
+/youtrack-mcp
+.env
+*.env
+
+/.github/*
+!/.github/workflows/
+!/.github/workflows/**
