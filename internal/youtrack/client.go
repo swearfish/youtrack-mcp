@@ -982,17 +982,25 @@ func storeAttachment(targetDir string, attachmentName string, content []byte) (s
 	stem := strings.TrimSuffix(base, ext)
 	index := 1
 	for {
-		if _, err := os.Stat(destination); os.IsNotExist(err) {
-			break
+		file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if err == nil {
+			if _, writeErr := file.Write(content); writeErr != nil {
+				file.Close()
+				_ = os.Remove(destination)
+				return "", fmt.Errorf("write attachment: %w", writeErr)
+			}
+			if closeErr := file.Close(); closeErr != nil {
+				_ = os.Remove(destination)
+				return "", fmt.Errorf("close attachment file: %w", closeErr)
+			}
+			return destination, nil
+		}
+		if !os.IsExist(err) {
+			return "", fmt.Errorf("create attachment file: %w", err)
 		}
 		destination = filepath.Join(targetDir, fmt.Sprintf("%s-%d%s", stem, index, ext))
 		index++
 	}
-
-	if err := os.WriteFile(destination, content, 0o644); err != nil {
-		return "", fmt.Errorf("write attachment: %w", err)
-	}
-	return destination, nil
 }
 
 func sanitizeAttachmentName(name string) (string, error) {

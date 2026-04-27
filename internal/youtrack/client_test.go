@@ -427,6 +427,32 @@ func TestRenderTextCodeBlockExpandsFenceWhenNeeded(t *testing.T) {
 	}
 }
 
+func TestStoreAttachmentDoesNotOverwriteExistingFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	originalPath := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(originalPath, []byte("original"), 0o644); err != nil {
+		t.Fatalf("write original attachment: %v", err)
+	}
+
+	savedPath, err := storeAttachment(dir, "notes.txt", []byte("replacement"))
+	if err != nil {
+		t.Fatalf("store attachment: %v", err)
+	}
+	if savedPath != filepath.Join(dir, "notes-1.txt") {
+		t.Fatalf("expected unique attachment path, got %s", savedPath)
+	}
+
+	originalContent, err := os.ReadFile(originalPath)
+	if err != nil {
+		t.Fatalf("read original attachment: %v", err)
+	}
+	if string(originalContent) != "original" {
+		t.Fatalf("expected original content to remain untouched, got %q", string(originalContent))
+	}
+}
+
 type fakeState struct {
 	project          map[string]any
 	projects         []map[string]any
