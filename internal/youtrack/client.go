@@ -164,6 +164,9 @@ func NewClient(baseURL string, apiToken string, httpClient *http.Client) (*Clien
 	if trimmedURL == "" {
 		return nil, fmt.Errorf("youtrack url is required")
 	}
+	if err := validateYouTrackURL(trimmedURL, allowInsecureYouTrack()); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(apiToken) == "" {
 		return nil, fmt.Errorf("youtrack api token is required")
 	}
@@ -179,6 +182,27 @@ func NewClient(baseURL string, apiToken string, httpClient *http.Client) (*Clien
 		apiToken:   strings.TrimSpace(apiToken),
 		httpClient: httpClient,
 	}, nil
+}
+
+func validateYouTrackURL(baseURL string, allowInsecure bool) error {
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("parse youtrack url: %w", err)
+	}
+	if strings.EqualFold(parsedURL.Scheme, "http") && !allowInsecure {
+		return fmt.Errorf("refusing insecure youtrack url %q; set %s=1 to allow http", baseURL, config.EnvYouTrackInsecure)
+	}
+	return nil
+}
+
+func allowInsecureYouTrack() bool {
+	value := strings.TrimSpace(os.Getenv(config.EnvYouTrackInsecure))
+	switch strings.ToLower(value) {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *Client) FetchStory(ctx context.Context, ticketID string, attachments bool, attachmentPath string) (string, error) {

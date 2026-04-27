@@ -12,6 +12,7 @@ const (
 	EnvYouTrackURL         = "YOUTRACK_URL"
 	EnvYouTrackToken       = "YOUTRACK_API_TOKEN"
 	EnvYouTrackHTTPTimeout = "YOUTRACK_HTTP_TIMEOUT"
+	EnvYouTrackInsecure    = "YOUTRACK_INSECURE"
 
 	EnvVSCodeMCPConfigPath  = "VSCODE_MCP_CONFIG_PATH"
 	EnvCopilotMCPConfigPath = "COPILOT_MCP_CONFIG_PATH"

@@ -10,7 +10,30 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"youtrack-mcp/internal/config"
 )
+
+func init() {
+	_ = os.Setenv(config.EnvYouTrackInsecure, "1")
+}
+
+func TestNewClientRejectsInsecureHTTPURLByDefault(t *testing.T) {
+	err := validateYouTrackURL("http://example.test", false)
+	if err == nil {
+		t.Fatalf("expected insecure URL to be rejected")
+	}
+	if !strings.Contains(err.Error(), "refusing insecure youtrack url") {
+		t.Fatalf("unexpected insecure URL error: %v", err)
+	}
+}
+
+func TestNewClientAllowsInsecureHTTPURLWhenOptedIn(t *testing.T) {
+	err := validateYouTrackURL("http://example.test", true)
+	if err != nil {
+		t.Fatalf("validate insecure opt-in URL: %v", err)
+	}
+}
 
 func TestClientOperations(t *testing.T) {
 	t.Parallel()

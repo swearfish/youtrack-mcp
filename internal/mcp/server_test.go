@@ -14,6 +14,10 @@ import (
 	"youtrack-mcp/internal/youtrack"
 )
 
+func init() {
+	_ = os.Setenv(config.EnvYouTrackInsecure, "1")
+}
+
 func TestFetchReturnsStructuredIssueByDefault(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
