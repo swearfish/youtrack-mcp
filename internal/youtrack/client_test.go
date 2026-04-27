@@ -163,6 +163,65 @@ func TestLinkTicketsQuotesPunctuatedRelation(t *testing.T) {
 	}
 }
 
+func TestUpdateTicketStatusSurfacesCommandErrors(t *testing.T) {
+	t.Parallel()
+
+	state := newFakeState()
+	state.commandErrors["State 'Blocked'"] = []string{"Unknown state Blocked"}
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = client.UpdateTicketStatus(context.Background(), "YT-39", "Blocked")
+	if err == nil {
+		t.Fatalf("expected command error to be surfaced")
+	}
+	if !strings.Contains(err.Error(), "youtrack command failed: Unknown state Blocked") {
+		t.Fatalf("unexpected command error: %v", err)
+	}
+}
+
+func TestLinkTicketsSurfacesCommandErrors(t *testing.T) {
+	t.Parallel()
+
+	state := newFakeState()
+	state.commandErrors["'invalid relation' YT-40"] = []string{"Unknown link type invalid relation"}
+	state.issues["YT-40"] = map[string]any{
+		"id":                 "2-40",
+		"idReadable":         "YT-40",
+		"summary":            "Linked issue",
+		"description":        "Linked ticket description",
+		"project":            state.project,
+		"status_field_name":  "State",
+		"status":             "Open",
+		"available_statuses": []string{"Open"},
+		"customFields":       []map[string]any{},
+		"links":              []map[string]any{},
+		"attachments":        []map[string]any{},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = client.LinkTickets(context.Background(), "YT-39", "YT-40", "invalid relation")
+	if err == nil {
+		t.Fatalf("expected link command error to be surfaced")
+	}
+	if !strings.Contains(err.Error(), "youtrack command failed: Unknown link type invalid relation") {
+		t.Fatalf("unexpected command error: %v", err)
+	}
+}
+
 func TestFetchStoryIncludesDownloadedAttachments(t *testing.T) {
 	t.Parallel()
 
@@ -375,6 +434,7 @@ type fakeState struct {
 	issues           map[string]map[string]any
 	attachmentBodies map[string][]byte
 	attachmentStatus map[string]int
+	commandErrors    map[string][]string
 }
 
 func newFakeState() *fakeState {
@@ -385,6 +445,7 @@ func newFakeState() *fakeState {
 		nextIssueNumber:  100,
 		attachmentBodies: map[string][]byte{},
 		attachmentStatus: map[string]int{},
+		commandErrors:    map[string][]string{},
 		issues: map[string]map[string]any{
 			"YT-39": {
 				"id":                 "2-39",
@@ -520,12 +581,22 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 		var payload map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&payload)
 		query := payload["query"].(string)
+		if commandErrors := s.commandErrors[query]; len(commandErrors) > 0 {
+			writeJSON(http.StatusOK, map[string]any{
+				"commands": []map[string]any{{
+					"errors": commandErrors,
+				}},
+			})
+			return
+		}
 		issues := anyToMapSlice(payload["issues"])
 		ticket := issues[0]["idReadable"].(string)
 		issue := s.issues[ticket]
 		if strings.HasPrefix(query, "State ") {
 			issue["status"] = parseFakeCommandValue(strings.TrimPrefix(query, "State "))
-			writeJSON(http.StatusOK, map[string]any{})
+			writeJSON(http.StatusOK, map[string]any{
+				"commands": []map[string]any{{"errors": []string{}}},
+			})
 			return
 		}
 		relation, linkedTicket := parseFakeLinkCommand(query)
@@ -543,7 +614,9 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 				"summary":    s.issues[linkedTicket]["summary"],
 			}},
 		})
-		writeJSON(http.StatusOK, map[string]any{})
+		writeJSON(http.StatusOK, map[string]any{
+			"commands": []map[string]any{{"errors": []string{}}},
+		})
 		return
 
 	case r.Method == http.MethodDelete && strings.Contains(r.URL.Path, "/links/"):

@@ -487,10 +487,29 @@ func (c *Client) applyCommand(ctx context.Context, query string, ticketIDs []str
 		issues = append(issues, map[string]any{"idReadable": ticketID})
 	}
 
-	return c.doJSON(ctx, http.MethodPost, "/api/commands", nil, map[string]any{
+	var response struct {
+		Commands []struct {
+			Errors []string `json:"errors"`
+		} `json:"commands"`
+	}
+	if err := c.doJSON(ctx, http.MethodPost, "/api/commands", map[string]string{
+		"fields": "commands(errors)",
+	}, map[string]any{
 		"query":  query,
 		"issues": issues,
-	}, nil)
+	}, &response); err != nil {
+		return err
+	}
+
+	var commandErrors []string
+	for _, command := range response.Commands {
+		commandErrors = append(commandErrors, command.Errors...)
+	}
+	if len(commandErrors) > 0 {
+		return fmt.Errorf("youtrack command failed: %s", strings.Join(commandErrors, "; "))
+	}
+
+	return nil
 }
 
 func quoteCommandValue(value string) string {
