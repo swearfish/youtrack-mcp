@@ -360,6 +360,40 @@ func TestFetchStoryDoesNotSendAuthToCrossOriginAttachmentURL(t *testing.T) {
 	}
 }
 
+func TestResolveAttachmentURLHandlesRelativeQueries(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient("https://youtrack.example/base", "perm:test", http.DefaultClient)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	resolved, err := client.resolveAttachmentURL("/files/story.txt?download=1#frag")
+	if err != nil {
+		t.Fatalf("resolve attachment url: %v", err)
+	}
+	if resolved != "https://youtrack.example/files/story.txt?download=1#frag" {
+		t.Fatalf("unexpected resolved attachment url: %s", resolved)
+	}
+}
+
+func TestResolveAttachmentURLRejectsUnsupportedScheme(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient("https://youtrack.example", "perm:test", http.DefaultClient)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = client.resolveAttachmentURL("file:///tmp/secret.txt")
+	if err == nil {
+		t.Fatalf("expected unsupported attachment scheme to fail")
+	}
+	if !strings.Contains(err.Error(), "unsupported scheme") {
+		t.Fatalf("unexpected attachment scheme error: %v", err)
+	}
+}
+
 func TestFetchTicketIncludesStructuredAttachments(t *testing.T) {
 	t.Parallel()
 

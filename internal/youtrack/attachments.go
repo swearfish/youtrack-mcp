@@ -110,9 +110,9 @@ func (c *Client) buildStructuredAttachments(ctx context.Context, attachments []m
 }
 
 func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) ([]byte, error) {
-	requestURL := attachmentURL
-	if !strings.HasPrefix(attachmentURL, "http://") && !strings.HasPrefix(attachmentURL, "https://") {
-		requestURL = c.baseURL + "/" + strings.TrimLeft(attachmentURL, "/")
+	requestURL, err := c.resolveAttachmentURL(attachmentURL)
+	if err != nil {
+		return nil, err
 	}
 
 	var lastErr error
@@ -152,6 +152,22 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 	}
 
 	return nil, lastErr
+}
+
+func (c *Client) resolveAttachmentURL(attachmentURL string) (string, error) {
+	base, err := url.Parse(c.baseURL)
+	if err != nil {
+		return "", fmt.Errorf("parse base attachment url: %w", err)
+	}
+	reference, err := url.Parse(strings.TrimSpace(attachmentURL))
+	if err != nil {
+		return "", fmt.Errorf("parse attachment url: %w", err)
+	}
+	resolved := base.ResolveReference(reference)
+	if !strings.EqualFold(resolved.Scheme, "http") && !strings.EqualFold(resolved.Scheme, "https") {
+		return "", fmt.Errorf("attachment url uses unsupported scheme %q", resolved.Scheme)
+	}
+	return resolved.String(), nil
 }
 
 func (c *Client) shouldAuthorizeAttachmentRequest(requestURL string) bool {
