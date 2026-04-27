@@ -1,7 +1,9 @@
 package cli
 
 import (
-	"context"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -12,8 +14,10 @@ func newMCPCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "mcp",
 		Short: "Start the YouTrack MCP server on stdio",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return internalmcp.Run(context.Background())
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			return internalmcp.Run(ctx)
 		},
 	}
 }
