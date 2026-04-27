@@ -244,6 +244,9 @@ func loadConfig(configPath string, serversKey string) (map[string]any, []byte, b
 		}
 		return nil, nil, false, fmt.Errorf("read config: %w", err)
 	}
+	if len(content) == 0 {
+		return map[string]any{serversKey: map[string]any{}}, nil, false, nil
+	}
 
 	standardized, err := hujson.Standardize(append([]byte(nil), content...))
 	if err != nil {

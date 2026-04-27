@@ -162,6 +162,33 @@ func TestLoadConfigSupportsJSONC(t *testing.T) {
 	}
 }
 
+func TestUpsertConfigTreatsEmptyFileAsMissing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "mcp.json")
+	if err := os.WriteFile(configPath, nil, 0o644); err != nil {
+		t.Fatalf("write empty config: %v", err)
+	}
+
+	changed, err := upsertConfig(configPath, "servers", "youtrack-mcp", map[string]any{"command": "/tmp/youtrack-mcp"})
+	if err != nil {
+		t.Fatalf("upsert empty config: %v", err)
+	}
+	if !changed {
+		t.Fatalf("expected empty config to be populated")
+	}
+
+	updated, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read updated config: %v", err)
+	}
+	text := string(updated)
+	if !strings.Contains(text, `"servers"`) || !strings.Contains(text, `"youtrack-mcp"`) {
+		t.Fatalf("expected server entry in populated config, got %s", text)
+	}
+}
+
 func TestRegisterPreservesExistingJSONCComments(t *testing.T) {
 	t.Parallel()
 
