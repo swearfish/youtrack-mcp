@@ -13,11 +13,7 @@ import (
 	"youtrack-mcp/internal/youtrack"
 )
 
-var (
-	falseBool   = false
-	trueBool    = true
-	clientCache sync.Map
-)
+var clientCache sync.Map
 
 func Run(ctx context.Context) error {
 	server := sdkmcp.NewServer(&sdkmcp.Implementation{
@@ -92,7 +88,7 @@ func toolName(base string) string {
 func readOnlyToolAnnotations() *sdkmcp.ToolAnnotations {
 	return &sdkmcp.ToolAnnotations{
 		ReadOnlyHint:  true,
-		OpenWorldHint: &falseBool,
+		OpenWorldHint: boolPtr(false),
 	}
 }
 
@@ -100,7 +96,7 @@ func writeToolAnnotations(idempotent bool, destructive bool) *sdkmcp.ToolAnnotat
 	return &sdkmcp.ToolAnnotations{
 		DestructiveHint: boolPtr(destructive),
 		IdempotentHint:  idempotent,
-		OpenWorldHint:   &falseBool,
+		OpenWorldHint:   boolPtr(false),
 	}
 }
 
