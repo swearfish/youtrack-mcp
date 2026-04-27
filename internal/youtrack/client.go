@@ -73,6 +73,8 @@ const (
 	storyAttachmentFields   = "attachments(name,url,size,mimeType)"
 	maxAttachmentNameLength = 128
 	maxHTTPGetAttempts      = 2
+	maxJSONResponseBytes    = 1 << 20
+	maxAttachmentBytes      = 8 << 20
 )
 
 type Client struct {
@@ -639,7 +641,7 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 			return nil, lastErr
 		}
 
-		body, readErr := io.ReadAll(response.Body)
+		body, readErr := readLimitedBody(response.Body, maxAttachmentBytes, "attachment response")
 		response.Body.Close()
 		if readErr != nil {
 			return nil, fmt.Errorf("read attachment response: %w", readErr)
@@ -712,7 +714,7 @@ func (c *Client) doJSON(ctx context.Context, method string, requestPath string, 
 			return lastErr
 		}
 
-		body, readErr := io.ReadAll(response.Body)
+		body, readErr := readLimitedBody(response.Body, maxJSONResponseBytes, "JSON response")
 		response.Body.Close()
 		if readErr != nil {
 			return fmt.Errorf("read response: %w", readErr)
@@ -954,6 +956,18 @@ func longestBacktickRun(content string) int {
 		current = 0
 	}
 	return longest
+}
+
+func readLimitedBody(reader io.Reader, limit int64, label string) ([]byte, error) {
+	limited := io.LimitReader(reader, limit+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > limit {
+		return nil, fmt.Errorf("%s exceeds %d bytes", label, limit)
+	}
+	return body, nil
 }
 
 func resolveAttachmentDir(path string) (string, error) {

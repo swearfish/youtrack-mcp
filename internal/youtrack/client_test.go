@@ -427,6 +427,18 @@ func TestRenderTextCodeBlockExpandsFenceWhenNeeded(t *testing.T) {
 	}
 }
 
+func TestReadLimitedBodyRejectsOversizedInput(t *testing.T) {
+	t.Parallel()
+
+	_, err := readLimitedBody(strings.NewReader("abcdef"), 5, "JSON response")
+	if err == nil {
+		t.Fatalf("expected oversized body to fail")
+	}
+	if !strings.Contains(err.Error(), "JSON response exceeds 5 bytes") {
+		t.Fatalf("unexpected body limit error: %v", err)
+	}
+}
+
 func TestStoreAttachmentDoesNotOverwriteExistingFile(t *testing.T) {
 	t.Parallel()
 
@@ -450,6 +462,32 @@ func TestStoreAttachmentDoesNotOverwriteExistingFile(t *testing.T) {
 	}
 	if string(originalContent) != "original" {
 		t.Fatalf("expected original content to remain untouched, got %q", string(originalContent))
+	}
+}
+
+func TestFetchStoryRejectsOversizedAttachment(t *testing.T) {
+	t.Parallel()
+
+	state := newFakeState()
+	state.issues["YT-39"]["attachments"] = []map[string]any{
+		{"name": "huge.txt", "url": "/files/huge.txt", "size": maxAttachmentBytes + 1, "mimeType": "text/plain"},
+	}
+	state.attachmentBodies["/files/huge.txt"] = []byte(strings.Repeat("a", maxAttachmentBytes+1))
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = client.FetchStory(context.Background(), "YT-39", true, "")
+	if err == nil {
+		t.Fatalf("expected oversized attachment to fail")
+	}
+	if !strings.Contains(err.Error(), "attachment response exceeds") {
+		t.Fatalf("unexpected oversized attachment error: %v", err)
 	}
 }
 
