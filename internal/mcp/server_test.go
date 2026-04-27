@@ -166,6 +166,28 @@ func TestUpdateRejectsMissingFieldsBeforeCallingYouTrack(t *testing.T) {
 	}
 }
 
+func TestResolveClientCachesByConfiguredTuple(t *testing.T) {
+	server := newFetchTestServer()
+	defer server.Close()
+
+	clearClientCache()
+	t.Cleanup(clearClientCache)
+	t.Setenv(config.EnvYouTrackURL, server.URL)
+	t.Setenv(config.EnvYouTrackToken, "perm:test")
+
+	first, err := resolveClient()
+	if err != nil {
+		t.Fatalf("resolve first client: %v", err)
+	}
+	second, err := resolveClient()
+	if err != nil {
+		t.Fatalf("resolve second client: %v", err)
+	}
+	if first != second {
+		t.Fatalf("expected cached client pointer reuse, got %p and %p", first, second)
+	}
+}
+
 func TestToolNameUsesDefaultPrefix(t *testing.T) {
 	original, hadOriginal := os.LookupEnv(config.EnvYouTrackToolPrefix)
 	_ = os.Unsetenv(config.EnvYouTrackToolPrefix)

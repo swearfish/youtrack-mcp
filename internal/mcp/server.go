@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -13,8 +14,9 @@ import (
 )
 
 var (
-	falseBool = false
-	trueBool  = true
+	falseBool   = false
+	trueBool    = true
+	clientCache sync.Map
 )
 
 func Run(ctx context.Context) error {
@@ -286,9 +288,22 @@ func resolveClient() (*youtrack.Client, error) {
 		return nil, fmt.Errorf("youtrack api token not configured; set %s", config.EnvYouTrackToken)
 	}
 
+	cacheKey := urlValue + "\x00" + tokenValue
+	if cached, ok := clientCache.Load(cacheKey); ok {
+		return cached.(*youtrack.Client), nil
+	}
+
 	client, err := youtrack.NewClient(urlValue, tokenValue, nil)
 	if err != nil {
 		return nil, err
 	}
-	return client, nil
+	actual, _ := clientCache.LoadOrStore(cacheKey, client)
+	return actual.(*youtrack.Client), nil
+}
+
+func clearClientCache() {
+	clientCache.Range(func(key any, value any) bool {
+		clientCache.Delete(key)
+		return true
+	})
 }
