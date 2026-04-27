@@ -62,11 +62,13 @@ func (c *Client) doJSON(ctx context.Context, method string, requestPath string, 
 		if err != nil {
 			lastErr = fmt.Errorf("perform request: %w", err)
 			if shouldRetryGET(attempt, 0, err) {
+				logDebug(ctx, "Retrying YouTrack request after transport error", "method", method, "url", endpoint.String(), "attempt", attempt+1, "error", err)
 				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
 					return waitErr
 				}
 				continue
 			}
+			logWarn(ctx, "YouTrack request failed", "method", method, "url", endpoint.String(), "error", lastErr)
 			return lastErr
 		}
 
@@ -78,11 +80,13 @@ func (c *Client) doJSON(ctx context.Context, method string, requestPath string, 
 		if response.StatusCode >= 400 {
 			lastErr = fmt.Errorf("youtrack request failed: %s", formatHTTPError(response.StatusCode, body))
 			if shouldRetryGET(attempt, response.StatusCode, nil) {
+				logDebug(ctx, "Retrying YouTrack request after upstream error", "method", method, "url", endpoint.String(), "attempt", attempt+1, "status", response.StatusCode)
 				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
 					return waitErr
 				}
 				continue
 			}
+			logWarn(ctx, "YouTrack request failed", "method", method, "url", endpoint.String(), "status", response.StatusCode, "error", lastErr)
 			return lastErr
 		}
 		if out == nil || len(body) == 0 {

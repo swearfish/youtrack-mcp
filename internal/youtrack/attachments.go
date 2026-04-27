@@ -41,6 +41,7 @@ func (c *Client) buildAttachmentSections(ctx context.Context, attachments []map[
 
 		downloadURL := textValue(attachment["url"])
 		if downloadURL == "" {
+			logDebug(ctx, "Skipping attachment download without URL", "name", name)
 			lines = append(lines, "", "Attachment URL is not available.")
 			sections = append(sections, strings.Join(lines, "\n"))
 			continue
@@ -67,11 +68,14 @@ func (c *Client) buildAttachmentSections(ctx context.Context, attachments []map[
 			if decoded, note := inlineAttachmentText(content, attachment, &totalInlineBytesRemaining); decoded != "" {
 				lines = append(lines, "", renderTextCodeBlock(decoded))
 				if note != "" {
+					logDebug(ctx, "Attachment content note", "name", name, "note", note)
 					lines = append(lines, note)
 				}
 			} else if note != "" {
+				logDebug(ctx, "Attachment content omitted", "name", name, "note", note)
 				lines = append(lines, "", note)
 			} else {
+				logDebug(ctx, "Attachment content omitted", "name", name, "reason", "binary")
 				lines = append(lines, "", "Binary attachment downloaded but content was omitted.")
 			}
 		}
@@ -120,11 +124,15 @@ func (c *Client) buildStructuredAttachments(ctx context.Context, attachments []m
 				decoded, note := inlineAttachmentText(content, attachment, &totalInlineBytesRemaining)
 				entry.Content = decoded
 				if note != "" {
+					logDebug(ctx, "Attachment content note", "name", entry.Name, "note", note)
 					if entry.Content != "" {
 						entry.Content += "\n\n" + note
 					} else {
 						entry.Content = note
 					}
+				}
+				if entry.Content == "" && note == "" && isTextAttachment(attachment) == false {
+					logDebug(ctx, "Attachment content omitted", "name", entry.Name, "reason", "binary")
 				}
 			}
 		}
@@ -156,11 +164,13 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 		if err != nil {
 			lastErr = fmt.Errorf("download attachment: %w", err)
 			if shouldRetryGET(attempt, 0, err) {
+				logDebug(ctx, "Retrying attachment download after transport error", "url", requestURL, "attempt", attempt+1, "error", err)
 				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
 					return nil, waitErr
 				}
 				continue
 			}
+			logWarn(ctx, "Attachment download failed", "url", requestURL, "error", lastErr)
 			return nil, lastErr
 		}
 
@@ -172,11 +182,13 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 		if response.StatusCode >= 400 {
 			lastErr = fmt.Errorf("download attachment failed: %s", formatHTTPError(response.StatusCode, body))
 			if shouldRetryGET(attempt, response.StatusCode, nil) {
+				logDebug(ctx, "Retrying attachment download after upstream error", "url", requestURL, "attempt", attempt+1, "status", response.StatusCode)
 				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
 					return nil, waitErr
 				}
 				continue
 			}
+			logWarn(ctx, "Attachment download failed", "url", requestURL, "status", response.StatusCode, "error", lastErr)
 			return nil, lastErr
 		}
 

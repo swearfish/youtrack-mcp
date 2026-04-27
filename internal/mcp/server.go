@@ -3,7 +3,9 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 	"sync"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -156,7 +158,8 @@ type unlinkTicketArgs struct {
 	Relation     string `json:"relation,omitempty" jsonschema:"Optional relation name to disambiguate unlinking."`
 }
 
-func fetchYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input fetchTicketArgs) (*sdkmcp.CallToolResult, youtrack.Issue, error) {
+func fetchYouTrackTicket(ctx context.Context, req *sdkmcp.CallToolRequest, input fetchTicketArgs) (*sdkmcp.CallToolResult, youtrack.Issue, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
 		return nil, youtrack.Issue{}, err
@@ -169,7 +172,8 @@ func fetchYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input f
 	return nil, issue, nil
 }
 
-func fetchYouTrackTicketMarkdown(ctx context.Context, _ *sdkmcp.CallToolRequest, input fetchTicketMarkdownArgs) (*sdkmcp.CallToolResult, struct{}, error) {
+func fetchYouTrackTicketMarkdown(ctx context.Context, req *sdkmcp.CallToolRequest, input fetchTicketMarkdownArgs) (*sdkmcp.CallToolResult, struct{}, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
 		return nil, struct{}{}, err
@@ -187,7 +191,8 @@ func fetchYouTrackTicketMarkdown(ctx context.Context, _ *sdkmcp.CallToolRequest,
 	}, struct{}{}, nil
 }
 
-func searchYouTrackTickets(ctx context.Context, _ *sdkmcp.CallToolRequest, input searchArgs) (*sdkmcp.CallToolResult, youtrack.SearchResults, error) {
+func searchYouTrackTickets(ctx context.Context, req *sdkmcp.CallToolRequest, input searchArgs) (*sdkmcp.CallToolResult, youtrack.SearchResults, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, err := resolveClient()
 	if err != nil {
 		return nil, youtrack.SearchResults{}, err
@@ -197,7 +202,8 @@ func searchYouTrackTickets(ctx context.Context, _ *sdkmcp.CallToolRequest, input
 	return nil, results, err
 }
 
-func getYouTrackTicketStatuses(ctx context.Context, _ *sdkmcp.CallToolRequest, input repoTicketArgs) (*sdkmcp.CallToolResult, youtrack.TicketStatuses, error) {
+func getYouTrackTicketStatuses(ctx context.Context, req *sdkmcp.CallToolRequest, input repoTicketArgs) (*sdkmcp.CallToolResult, youtrack.TicketStatuses, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
 		return nil, youtrack.TicketStatuses{}, err
@@ -207,7 +213,8 @@ func getYouTrackTicketStatuses(ctx context.Context, _ *sdkmcp.CallToolRequest, i
 	return nil, result, err
 }
 
-func updateYouTrackTicketStatus(ctx context.Context, _ *sdkmcp.CallToolRequest, input updateStatusArgs) (*sdkmcp.CallToolResult, youtrack.StatusUpdate, error) {
+func updateYouTrackTicketStatus(ctx context.Context, req *sdkmcp.CallToolRequest, input updateStatusArgs) (*sdkmcp.CallToolResult, youtrack.StatusUpdate, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
 		return nil, youtrack.StatusUpdate{}, err
@@ -217,7 +224,8 @@ func updateYouTrackTicketStatus(ctx context.Context, _ *sdkmcp.CallToolRequest, 
 	return nil, result, err
 }
 
-func createYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input createTicketArgs) (*sdkmcp.CallToolResult, youtrack.Issue, error) {
+func createYouTrackTicket(ctx context.Context, req *sdkmcp.CallToolRequest, input createTicketArgs) (*sdkmcp.CallToolResult, youtrack.Issue, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, err := resolveClient()
 	if err != nil {
 		return nil, youtrack.Issue{}, err
@@ -227,7 +235,8 @@ func createYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input 
 	return nil, result, err
 }
 
-func updateYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input updateTicketArgs) (*sdkmcp.CallToolResult, youtrack.Issue, error) {
+func updateYouTrackTicket(ctx context.Context, req *sdkmcp.CallToolRequest, input updateTicketArgs) (*sdkmcp.CallToolResult, youtrack.Issue, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
 		return nil, youtrack.Issue{}, err
@@ -240,7 +249,8 @@ func updateYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input 
 	return nil, result, err
 }
 
-func linkYouTrackTickets(ctx context.Context, _ *sdkmcp.CallToolRequest, input linkTicketArgs) (*sdkmcp.CallToolResult, youtrack.LinkResult, error) {
+func linkYouTrackTickets(ctx context.Context, req *sdkmcp.CallToolRequest, input linkTicketArgs) (*sdkmcp.CallToolResult, youtrack.LinkResult, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
 		return nil, youtrack.LinkResult{}, err
@@ -250,7 +260,8 @@ func linkYouTrackTickets(ctx context.Context, _ *sdkmcp.CallToolRequest, input l
 	return nil, result, err
 }
 
-func unlinkYouTrackTickets(ctx context.Context, _ *sdkmcp.CallToolRequest, input unlinkTicketArgs) (*sdkmcp.CallToolResult, youtrack.UnlinkResult, error) {
+func unlinkYouTrackTickets(ctx context.Context, req *sdkmcp.CallToolRequest, input unlinkTicketArgs) (*sdkmcp.CallToolResult, youtrack.UnlinkResult, error) {
+	ctx = withRequestLogger(ctx, req)
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
 		return nil, youtrack.UnlinkResult{}, err
@@ -302,4 +313,48 @@ func clearClientCache() {
 		clientCache.Delete(key)
 		return true
 	})
+}
+
+func withRequestLogger(ctx context.Context, req *sdkmcp.CallToolRequest) context.Context {
+	if req == nil || req.Session == nil {
+		return ctx
+	}
+	return youtrack.WithLogger(ctx, func(logCtx context.Context, level slog.Level, msg string, args ...any) {
+		_ = req.Session.Log(logCtx, &sdkmcp.LoggingMessageParams{
+			Level: sdkmcp.LoggingLevel(loggingLevel(level)),
+			Data:  formatLogMessage(msg, args...),
+		})
+	})
+}
+
+func loggingLevel(level slog.Level) string {
+	switch {
+	case level <= slog.LevelDebug:
+		return "debug"
+	case level < slog.LevelWarn:
+		return "info"
+	case level < slog.LevelError:
+		return "warning"
+	default:
+		return "error"
+	}
+}
+
+func formatLogMessage(msg string, args ...any) string {
+	if len(args) == 0 {
+		return msg
+	}
+	var builder strings.Builder
+	builder.WriteString(msg)
+	for i := 0; i < len(args); i += 2 {
+		builder.WriteByte(' ')
+		builder.WriteString(fmt.Sprint(args[i]))
+		builder.WriteByte('=')
+		if i+1 < len(args) {
+			builder.WriteString(fmt.Sprint(args[i+1]))
+			continue
+		}
+		builder.WriteString("<missing>")
+	}
+	return builder.String()
 }
