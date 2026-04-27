@@ -101,15 +101,17 @@ Top-level commands:
 
 `internal/mcp/server.go` creates the MCP server with the Go MCP SDK and registers the public tools.
 
-The MCP surface is intentionally compact because this server is YouTrack-only:
+The MCP surface defaults to a `youtrack_` prefix so it does not collide with tools from other MCP servers. Set `YOUTRACK_TOOL_PREFIX=""` to opt out when the client already scopes tools by server:
 
-- `fetch`
-- `get_statuses`
-- `update_status`
-- `create`
-- `update`
-- `link`
-- `unlink`
+- `youtrack_search`
+- `youtrack_fetch`
+- `youtrack_fetch_markdown`
+- `youtrack_get_statuses`
+- `youtrack_update_status`
+- `youtrack_create`
+- `youtrack_update`
+- `youtrack_link`
+- `youtrack_unlink`
 
 The handler layer is thin by design: it resolves credentials, validates required ticket IDs for ticket-scoped tools, then delegates to the domain client.
 
@@ -142,6 +144,7 @@ It handles:
 - `internal/envfile` loads dotenv-style files
 - `internal/config` holds env var names and constants
 - `YOUTRACK_HTTP_TIMEOUT` can override the default 30s HTTP client timeout with a Go duration string
+- `YOUTRACK_TOOL_PREFIX` defaults tool names to the `youtrack_` prefix; set it to an empty string to expose unprefixed names
 - `internal/version` is populated at build time from `git describe --tags --always --dirty` and exposed by the CLI and MCP server metadata
 
 ## Design decisions

@@ -29,52 +29,62 @@ func Run(ctx context.Context) error {
 
 func addTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "search",
+		Name:        toolName("search"),
 		Annotations: readOnlyToolAnnotations(),
 		Description: "Search YouTrack tickets by free-text or YouTrack query syntax when you do not already know the exact ticket ID. Returns structured JSON issue data for the matching tickets. Use `limit` to control how many matches are returned.",
 	}, searchYouTrackTickets)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "fetch",
+		Name:        toolName("fetch"),
 		Annotations: readOnlyToolAnnotations(),
-		Description: "Fetch a YouTrack ticket by explicit `ticket`. By default this returns structured JSON issue data. Set `markdown=true` to get rendered Markdown instead. In structured mode, `attachments=true` inlines text attachment content into the JSON response, and `attachment_path` downloads attachments to disk and returns saved file paths in the JSON. In Markdown mode, the same flags control inline attachment sections and attachment downloads.",
-	}, fetchYouTrackUserStory)
+		Description: "Fetch a YouTrack ticket by explicit `ticket` and return structured JSON issue data. Set `attachments=true` to inline text attachment content into the JSON response, and use `attachment_path` to download attachments to disk and return saved file paths in the JSON.",
+	}, fetchYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "get_statuses",
+		Name:        toolName("fetch_markdown"),
+		Annotations: readOnlyToolAnnotations(),
+		Description: "Fetch a YouTrack ticket by explicit `ticket` and return rendered Markdown. Set `attachments=true` to inline text attachment sections, and use `attachment_path` to download attachments to disk and include the saved paths in the Markdown.",
+	}, fetchYouTrackTicketMarkdown)
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        toolName("get_statuses"),
 		Annotations: readOnlyToolAnnotations(),
 		Description: "List the valid status values for an explicit YouTrack `ticket`, including the current status and the available status transitions returned by YouTrack.",
 	}, getYouTrackTicketStatuses)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "update_status",
+		Name:        toolName("update_status"),
 		Annotations: writeToolAnnotations(true),
-		Description: "Update the status of an explicit YouTrack `ticket` to the provided `status` value. Use `get_statuses` first when you need YouTrack-valid status names.",
+		Description: "Update the status of an explicit YouTrack `ticket` to the provided `status` value. Use the status-listing tool first when you need YouTrack-valid status names.",
 	}, updateYouTrackTicketStatus)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "create",
+		Name:        toolName("create"),
 		Annotations: writeToolAnnotations(false),
 		Description: "Create a new YouTrack ticket in the specified `project` with the provided `summary`, and optional `description` and `custom_fields` JSON.",
 	}, createYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "update",
+		Name:        toolName("update"),
 		Annotations: writeToolAnnotations(true),
 		Description: "Update an existing explicit YouTrack `ticket`. Provide at least one of `summary`, `description`, or `custom_fields`; calling this tool with none of them is an error. Set `summary` or `description` to an explicit empty string when you want to clear that field.",
 	}, updateYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "link",
+		Name:        toolName("link"),
 		Annotations: writeToolAnnotations(false),
 		Description: "Create a YouTrack link from `ticket` to `linked_ticket` using the provided `relation` command text, for example `relates to`. Multi-word or punctuated relation values are automatically quoted before sending the command to YouTrack.",
 	}, linkYouTrackTickets)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        "unlink",
+		Name:        toolName("unlink"),
 		Annotations: writeToolAnnotations(true),
 		Description: "Remove an existing YouTrack link between `ticket` and `linked_ticket`. Provide `relation` when the ticket pair has multiple link types and you need to disambiguate which one to remove.",
 	}, unlinkYouTrackTickets)
+}
+
+func toolName(base string) string {
+	return config.ToolPrefix() + base
 }
 
 func readOnlyToolAnnotations() *sdkmcp.ToolAnnotations {
@@ -101,11 +111,16 @@ type searchArgs struct {
 	Limit int    `json:"limit,omitempty" jsonschema:"Optional maximum number of matching tickets to return. Defaults to 10 and is capped at 100."`
 }
 
-type fetchStoryArgs struct {
+type fetchTicketArgs struct {
 	Ticket         string `json:"ticket" jsonschema:"Required YouTrack ticket ID. This server does not infer tickets from branch names or repo paths."`
-	Markdown       bool   `json:"markdown,omitempty" jsonschema:"When true, return the current Markdown story output instead of structured JSON issue data."`
-	Attachments    bool   `json:"attachments,omitempty" jsonschema:"When true, inline text attachment contents. In structured JSON mode the text is added to the attachments array; in Markdown mode it is appended to the rendered story. This can substantially increase response size for large attachments."`
-	AttachmentPath string `json:"attachment_path,omitempty" jsonschema:"Optional directory where attachments should be downloaded to disk. In structured JSON mode saved file paths are returned in the attachments array; in Markdown mode the rendered story includes the saved paths."`
+	Attachments    bool   `json:"attachments,omitempty" jsonschema:"When true, inline text attachment contents into the structured JSON attachments array. This can substantially increase response size for large attachments."`
+	AttachmentPath string `json:"attachment_path,omitempty" jsonschema:"Optional directory where attachments should be downloaded to disk. Saved file paths are returned in the structured JSON attachments array."`
+}
+
+type fetchTicketMarkdownArgs struct {
+	Ticket         string `json:"ticket" jsonschema:"Required YouTrack ticket ID. This server does not infer tickets from branch names or repo paths."`
+	Attachments    bool   `json:"attachments,omitempty" jsonschema:"When true, inline text attachment contents into the rendered Markdown. This can substantially increase response size for large attachments."`
+	AttachmentPath string `json:"attachment_path,omitempty" jsonschema:"Optional directory where attachments should be downloaded to disk. The rendered Markdown includes the saved paths."`
 }
 
 type createTicketArgs struct {
@@ -139,30 +154,35 @@ type unlinkTicketArgs struct {
 	Relation     string `json:"relation,omitempty" jsonschema:"Optional relation name to disambiguate unlinking."`
 }
 
-func fetchYouTrackUserStory(ctx context.Context, _ *sdkmcp.CallToolRequest, input fetchStoryArgs) (*sdkmcp.CallToolResult, any, error) {
+func fetchYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input fetchTicketArgs) (*sdkmcp.CallToolResult, youtrack.Issue, error) {
 	client, ticketID, err := resolveClientAndTicket(input.Ticket)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if input.Markdown {
-		story, err := client.FetchStory(ctx, ticketID, input.Attachments, input.AttachmentPath)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return &sdkmcp.CallToolResult{
-			Content: []sdkmcp.Content{
-				&sdkmcp.TextContent{Text: story},
-			},
-		}, nil, nil
+		return nil, youtrack.Issue{}, err
 	}
 
 	issue, err := client.FetchTicket(ctx, ticketID, input.Attachments, input.AttachmentPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, youtrack.Issue{}, err
 	}
 	return nil, issue, nil
+}
+
+func fetchYouTrackTicketMarkdown(ctx context.Context, _ *sdkmcp.CallToolRequest, input fetchTicketMarkdownArgs) (*sdkmcp.CallToolResult, struct{}, error) {
+	client, ticketID, err := resolveClientAndTicket(input.Ticket)
+	if err != nil {
+		return nil, struct{}{}, err
+	}
+
+	story, err := client.FetchStory(ctx, ticketID, input.Attachments, input.AttachmentPath)
+	if err != nil {
+		return nil, struct{}{}, err
+	}
+
+	return &sdkmcp.CallToolResult{
+		Content: []sdkmcp.Content{
+			&sdkmcp.TextContent{Text: story},
+		},
+	}, struct{}{}, nil
 }
 
 func searchYouTrackTickets(ctx context.Context, _ *sdkmcp.CallToolRequest, input searchArgs) (*sdkmcp.CallToolResult, youtrack.SearchResults, error) {

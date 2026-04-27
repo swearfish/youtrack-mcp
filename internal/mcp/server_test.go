@@ -12,21 +12,20 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"youtrack-mcp/internal/config"
-	"youtrack-mcp/internal/youtrack"
 )
 
 func init() {
 	_ = os.Setenv(config.EnvYouTrackInsecure, "1")
 }
 
-func TestFetchReturnsStructuredIssueByDefault(t *testing.T) {
+func TestStructuredFetchReturnsIssue(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
 	t.Setenv(config.EnvYouTrackURL, server.URL)
 	t.Setenv(config.EnvYouTrackToken, "perm:test")
 
-	result, payload, err := fetchYouTrackUserStory(context.Background(), nil, fetchStoryArgs{
+	result, payload, err := fetchYouTrackTicket(context.Background(), nil, fetchTicketArgs{
 		Ticket: "YT-39",
 	})
 	if err != nil {
@@ -36,12 +35,8 @@ func TestFetchReturnsStructuredIssueByDefault(t *testing.T) {
 		t.Fatalf("expected no text result in structured mode, got %+v", result)
 	}
 
-	issue, ok := payload.(youtrack.Issue)
-	if !ok {
-		t.Fatalf("expected structured issue payload, got %T", payload)
-	}
-	if issue.Ticket != "YT-39" || issue.Summary != "Update tickets" || issue.Status != "Open" {
-		t.Fatalf("unexpected structured issue: %+v", issue)
+	if payload.Ticket != "YT-39" || payload.Summary != "Update tickets" || payload.Status != "Open" {
+		t.Fatalf("unexpected structured issue: %+v", payload)
 	}
 }
 
@@ -68,22 +63,21 @@ func TestSearchReturnsStructuredIssues(t *testing.T) {
 	}
 }
 
-func TestFetchReturnsMarkdownWhenRequested(t *testing.T) {
+func TestMarkdownFetchReturnsText(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
 	t.Setenv(config.EnvYouTrackURL, server.URL)
 	t.Setenv(config.EnvYouTrackToken, "perm:test")
 
-	result, payload, err := fetchYouTrackUserStory(context.Background(), nil, fetchStoryArgs{
-		Ticket:   "YT-39",
-		Markdown: true,
+	result, payload, err := fetchYouTrackTicketMarkdown(context.Background(), nil, fetchTicketMarkdownArgs{
+		Ticket: "YT-39",
 	})
 	if err != nil {
 		t.Fatalf("fetch markdown: %v", err)
 	}
-	if payload != nil {
-		t.Fatalf("expected no structured payload in markdown mode, got %T", payload)
+	if payload != (struct{}{}) {
+		t.Fatalf("expected empty structured payload in markdown mode, got %#v", payload)
 	}
 	if result == nil || len(result.Content) != 1 {
 		t.Fatalf("expected markdown text content, got %+v", result)
@@ -97,7 +91,7 @@ func TestFetchReturnsMarkdownWhenRequested(t *testing.T) {
 	}
 }
 
-func TestFetchStructuredModeSupportsAttachments(t *testing.T) {
+func TestStructuredFetchSupportsAttachments(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
 
@@ -105,7 +99,7 @@ func TestFetchStructuredModeSupportsAttachments(t *testing.T) {
 	t.Setenv(config.EnvYouTrackToken, "perm:test")
 
 	attachmentDir := t.TempDir()
-	result, payload, err := fetchYouTrackUserStory(context.Background(), nil, fetchStoryArgs{
+	result, payload, err := fetchYouTrackTicket(context.Background(), nil, fetchTicketArgs{
 		Ticket:         "YT-39",
 		Attachments:    true,
 		AttachmentPath: attachmentDir,
@@ -117,15 +111,11 @@ func TestFetchStructuredModeSupportsAttachments(t *testing.T) {
 		t.Fatalf("expected structured payload, got text result %+v", result)
 	}
 
-	issue, ok := payload.(youtrack.Issue)
-	if !ok {
-		t.Fatalf("expected structured issue payload, got %T", payload)
-	}
-	if len(issue.Attachments) != 2 {
-		t.Fatalf("expected two attachments, got %+v", issue.Attachments)
+	if len(payload.Attachments) != 2 {
+		t.Fatalf("expected two attachments, got %+v", payload.Attachments)
 	}
 
-	textAttachment := issue.Attachments[0]
+	textAttachment := payload.Attachments[0]
 	if textAttachment.Content != "hello from text attachment" {
 		t.Fatalf("expected inlined text attachment content, got %+v", textAttachment)
 	}
@@ -133,7 +123,7 @@ func TestFetchStructuredModeSupportsAttachments(t *testing.T) {
 		t.Fatalf("expected saved path for text attachment, got %+v", textAttachment)
 	}
 
-	binaryAttachment := issue.Attachments[1]
+	binaryAttachment := payload.Attachments[1]
 	if binaryAttachment.Content != "" {
 		t.Fatalf("expected binary attachment content to stay omitted, got %+v", binaryAttachment)
 	}
@@ -173,6 +163,29 @@ func TestUpdateRejectsMissingFieldsBeforeCallingYouTrack(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "provide at least one of summary, description, or custom_fields") {
 		t.Fatalf("unexpected update validation error: %v", err)
+	}
+}
+
+func TestToolNameUsesDefaultPrefix(t *testing.T) {
+	original, hadOriginal := os.LookupEnv(config.EnvYouTrackToolPrefix)
+	_ = os.Unsetenv(config.EnvYouTrackToolPrefix)
+	defer func() {
+		if hadOriginal {
+			_ = os.Setenv(config.EnvYouTrackToolPrefix, original)
+			return
+		}
+		_ = os.Unsetenv(config.EnvYouTrackToolPrefix)
+	}()
+
+	if got := toolName("fetch"); got != "youtrack_fetch" {
+		t.Fatalf("expected default prefixed tool name, got %q", got)
+	}
+}
+
+func TestToolNameAllowsEmptyPrefix(t *testing.T) {
+	t.Setenv(config.EnvYouTrackToolPrefix, "")
+	if got := toolName("fetch"); got != "fetch" {
+		t.Fatalf("expected unprefixed tool name, got %q", got)
 	}
 }
 

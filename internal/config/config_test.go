@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestRequestTimeoutDefault(t *testing.T) {
 	t.Setenv(EnvYouTrackHTTPTimeout, "")
@@ -32,5 +35,35 @@ func TestRequestTimeoutRejectsInvalidValue(t *testing.T) {
 	_, err := RequestTimeout()
 	if err == nil {
 		t.Fatalf("expected invalid timeout to fail")
+	}
+}
+
+func TestToolPrefixDefault(t *testing.T) {
+	t.Setenv(EnvYouTrackToolPrefix, "")
+	if got := ToolPrefix(); got != "" {
+		t.Fatalf("expected explicit empty prefix to be preserved, got %q", got)
+	}
+}
+
+func TestToolPrefixUsesDefaultWhenUnset(t *testing.T) {
+	original, hadOriginal := os.LookupEnv(EnvYouTrackToolPrefix)
+	_ = os.Unsetenv(EnvYouTrackToolPrefix)
+	defer func() {
+		if hadOriginal {
+			_ = os.Setenv(EnvYouTrackToolPrefix, original)
+			return
+		}
+		_ = os.Unsetenv(EnvYouTrackToolPrefix)
+	}()
+
+	if got := ToolPrefix(); got != DefaultToolPrefix {
+		t.Fatalf("expected default prefix %q, got %q", DefaultToolPrefix, got)
+	}
+}
+
+func TestToolPrefixFromEnv(t *testing.T) {
+	t.Setenv(EnvYouTrackToolPrefix, "acme_")
+	if got := ToolPrefix(); got != "acme_" {
+		t.Fatalf("expected custom prefix, got %q", got)
 	}
 }

@@ -13,12 +13,14 @@ const (
 	EnvYouTrackToken       = "YOUTRACK_API_TOKEN"
 	EnvYouTrackHTTPTimeout = "YOUTRACK_HTTP_TIMEOUT"
 	EnvYouTrackInsecure    = "YOUTRACK_INSECURE"
+	EnvYouTrackToolPrefix  = "YOUTRACK_TOOL_PREFIX"
 
 	EnvVSCodeMCPConfigPath  = "VSCODE_MCP_CONFIG_PATH"
 	EnvCopilotMCPConfigPath = "COPILOT_MCP_CONFIG_PATH"
 )
 
 const DefaultRequestTimeout = 30 * time.Second
+const DefaultToolPrefix = "youtrack_"
 
 func RequestTimeout() (time.Duration, error) {
 	raw := strings.TrimSpace(os.Getenv(EnvYouTrackHTTPTimeout))
@@ -34,4 +36,12 @@ func RequestTimeout() (time.Duration, error) {
 		return 0, fmt.Errorf("%s must be greater than zero", EnvYouTrackHTTPTimeout)
 	}
 	return timeout, nil
+}
+
+func ToolPrefix() string {
+	raw, ok := os.LookupEnv(EnvYouTrackToolPrefix)
+	if !ok {
+		return DefaultToolPrefix
+	}
+	return strings.TrimSpace(raw)
 }
