@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -117,6 +118,24 @@ func TestClientOperations(t *testing.T) {
 	}
 	if unlinkResult.UnlinkedTicket != created.Ticket {
 		t.Fatalf("unexpected unlink result: %+v", unlinkResult)
+	}
+
+	results, err := client.SearchTickets(ctx, "update", 5)
+	if err != nil {
+		t.Fatalf("search tickets: %v", err)
+	}
+	if results.Query != "update" || len(results.Issues) < 1 {
+		t.Fatalf("unexpected search results: %+v", results)
+	}
+	found := false
+	for _, issue := range results.Issues {
+		if issue.Ticket == "YT-39" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected search results to include YT-39, got %+v", results)
 	}
 }
 
@@ -606,6 +625,31 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		writeJSON(http.StatusOK, projects)
+		return
+
+	case r.Method == http.MethodGet && r.URL.Path == "/api/issues":
+		query := strings.ToLower(r.URL.Query().Get("query"))
+		limit := len(s.issues)
+		if top := r.URL.Query().Get("$top"); top != "" {
+			if parsed, err := strconv.Atoi(top); err == nil && parsed >= 0 && parsed < limit {
+				limit = parsed
+			}
+		}
+
+		results := make([]map[string]any, 0, limit)
+		for _, issue := range s.issues {
+			if query != "" &&
+				!strings.Contains(strings.ToLower(anyString(issue["idReadable"])), query) &&
+				!strings.Contains(strings.ToLower(anyString(issue["summary"])), query) &&
+				!strings.Contains(strings.ToLower(anyString(issue["description"])), query) {
+				continue
+			}
+			results = append(results, serializeFakeIssue(issue))
+			if len(results) == limit {
+				break
+			}
+		}
+		writeJSON(http.StatusOK, results)
 		return
 
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/issues/") && strings.HasSuffix(r.URL.Path, "/links"):

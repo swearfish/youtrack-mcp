@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"youtrack-mcp/internal/config"
@@ -138,6 +139,11 @@ type TicketStatuses struct {
 	FieldName     string   `json:"field_name"`
 	CurrentStatus string   `json:"current_status,omitempty"`
 	Statuses      []string `json:"statuses"`
+}
+
+type SearchResults struct {
+	Query  string  `json:"query"`
+	Issues []Issue `json:"issues"`
 }
 
 type StatusUpdate struct {
@@ -269,6 +275,36 @@ func (c *Client) FetchTicket(ctx context.Context, ticketID string, attachments b
 		if err != nil {
 			return Issue{}, err
 		}
+	}
+	return result, nil
+}
+
+func (c *Client) SearchTickets(ctx context.Context, query string, limit int) (SearchResults, error) {
+	if strings.TrimSpace(query) == "" {
+		return SearchResults{}, fmt.Errorf("query is required")
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	var issues []map[string]any
+	if err := c.doJSON(ctx, http.MethodGet, "/api/issues", map[string]string{
+		"fields": issueDetailFields,
+		"query":  query,
+		"$top":   strconv.Itoa(limit),
+	}, nil, &issues); err != nil {
+		return SearchResults{}, err
+	}
+
+	result := SearchResults{
+		Query:  query,
+		Issues: make([]Issue, 0, len(issues)),
+	}
+	for _, issue := range issues {
+		result.Issues = append(result.Issues, serializeIssue(issue))
 	}
 	return result, nil
 }

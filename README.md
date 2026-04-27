@@ -74,6 +74,7 @@ If you register from a development checkout, prefer a built binary or pass `--bi
 
 | Tool | Purpose |
 |---|---|
+| `search` | Search tickets by free text or YouTrack query syntax and return structured issue data |
 | `fetch` | Fetch a ticket as structured JSON by default, or Markdown when `markdown=true`; attachments can be inlined or saved in either mode |
 | `get_statuses` | List valid statuses for a ticket |
 | `update_status` | Change a ticket status |

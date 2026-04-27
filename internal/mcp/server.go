@@ -29,6 +29,12 @@ func Run(ctx context.Context) error {
 
 func addTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        "search",
+		Annotations: readOnlyToolAnnotations(),
+		Description: "Search YouTrack tickets by free-text or YouTrack query syntax when you do not already know the exact ticket ID. Returns structured JSON issue data for the matching tickets. Use `limit` to control how many matches are returned.",
+	}, searchYouTrackTickets)
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "fetch",
 		Annotations: readOnlyToolAnnotations(),
 		Description: "Fetch a YouTrack ticket by explicit `ticket`. By default this returns structured JSON issue data like the other tools. Set `markdown=true` to get the rendered Markdown story output instead. In structured mode, `attachments=true` inlines text attachment content into the JSON response, and `attachment_path` downloads attachments to disk and returns saved file paths in the JSON. In Markdown mode, the same flags control inline attachment sections and attachment downloads.",
@@ -88,6 +94,11 @@ func writeToolAnnotations(idempotent bool) *sdkmcp.ToolAnnotations {
 
 type repoTicketArgs struct {
 	Ticket string `json:"ticket" jsonschema:"Required YouTrack ticket ID. This server does not infer tickets from branch names or repo paths."`
+}
+
+type searchArgs struct {
+	Query string `json:"query" jsonschema:"Required free-text search string or YouTrack issue query."`
+	Limit int    `json:"limit,omitempty" jsonschema:"Optional maximum number of matching tickets to return. Defaults to 10 and is capped at 100."`
 }
 
 type fetchStoryArgs struct {
@@ -152,6 +163,16 @@ func fetchYouTrackUserStory(ctx context.Context, _ *sdkmcp.CallToolRequest, inpu
 		return nil, nil, err
 	}
 	return nil, issue, nil
+}
+
+func searchYouTrackTickets(ctx context.Context, _ *sdkmcp.CallToolRequest, input searchArgs) (*sdkmcp.CallToolResult, youtrack.SearchResults, error) {
+	client, err := resolveClient()
+	if err != nil {
+		return nil, youtrack.SearchResults{}, err
+	}
+
+	results, err := client.SearchTickets(ctx, input.Query, input.Limit)
+	return nil, results, err
 }
 
 func getYouTrackTicketStatuses(ctx context.Context, _ *sdkmcp.CallToolRequest, input repoTicketArgs) (*sdkmcp.CallToolResult, youtrack.TicketStatuses, error) {

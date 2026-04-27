@@ -44,6 +44,29 @@ func TestFetchReturnsStructuredIssueByDefault(t *testing.T) {
 	}
 }
 
+func TestSearchReturnsStructuredIssues(t *testing.T) {
+	server := newFetchTestServer()
+	defer server.Close()
+
+	t.Setenv(config.EnvYouTrackURL, server.URL)
+	t.Setenv(config.EnvYouTrackToken, "perm:test")
+
+	result, payload, err := searchYouTrackTickets(context.Background(), nil, searchArgs{
+		Query: "update",
+		Limit: 5,
+	})
+	if err != nil {
+		t.Fatalf("search issues: %v", err)
+	}
+	if result != nil {
+		t.Fatalf("expected no text result for search, got %+v", result)
+	}
+
+	if payload.Query != "update" || len(payload.Issues) != 1 || payload.Issues[0].Ticket != "YT-39" {
+		t.Fatalf("unexpected search results: %+v", payload)
+	}
+}
+
 func TestFetchReturnsMarkdownWhenRequested(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
@@ -136,6 +159,24 @@ func TestResolveClientAndTicketRequiresConfiguredEnv(t *testing.T) {
 
 func newFetchTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/issues" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]any{{
+				"id":          "2-39",
+				"idReadable":  "YT-39",
+				"summary":     "Update tickets",
+				"description": "Ticket description",
+				"project":     map[string]any{"id": "0-1", "name": "YouTrack MCP", "shortName": "YT"},
+				"customFields": []map[string]any{{
+					"name":  "State",
+					"$type": "StateIssueCustomField",
+					"value": map[string]any{"name": "Open"},
+				}},
+				"links":       []map[string]any{},
+				"attachments": []map[string]any{},
+			}})
+			return
+		}
 		if r.Method == http.MethodGet && r.URL.Path == "/api/issues/YT-39" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
