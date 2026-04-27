@@ -475,11 +475,16 @@ func (c *Client) UnlinkTickets(ctx context.Context, ticketID string, linkedTicke
 
 func (c *Client) resolveProject(ctx context.Context, project string) (Project, error) {
 	var projects []map[string]any
-	if err := c.doJSON(ctx, http.MethodGet, "/api/admin/projects", map[string]string{
+	if err := c.doJSON(ctx, http.MethodGet, "/api/projects", map[string]string{
 		"fields": projectFields,
 		"query":  project,
 	}, nil, &projects); err != nil {
-		return Project{}, err
+		if err := c.doJSON(ctx, http.MethodGet, "/api/admin/projects", map[string]string{
+			"fields": projectFields,
+			"query":  project,
+		}, nil, &projects); err != nil {
+			return Project{}, err
+		}
 	}
 
 	normalized := strings.ToLower(project)

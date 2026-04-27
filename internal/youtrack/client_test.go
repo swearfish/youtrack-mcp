@@ -139,6 +139,29 @@ func TestClientOperations(t *testing.T) {
 	}
 }
 
+func TestCreateTicketFallsBackToAdminProjectsEndpoint(t *testing.T) {
+	t.Parallel()
+
+	state := newFakeState()
+	state.publicProjectsStatus = http.StatusForbidden
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	created, err := client.CreateTicket(context.Background(), "YT", "New ticket", "desc", nil)
+	if err != nil {
+		t.Fatalf("create ticket with admin fallback: %v", err)
+	}
+	if created.Ticket == "" || created.Project.ShortName != "YT" {
+		t.Fatalf("unexpected created ticket after fallback: %+v", created)
+	}
+}
+
 func TestUpdateTicketStatusQuotesPunctuatedStatus(t *testing.T) {
 	t.Parallel()
 
@@ -592,13 +615,14 @@ func TestFetchStoryRejectsOversizedAttachment(t *testing.T) {
 }
 
 type fakeState struct {
-	project          map[string]any
-	projects         []map[string]any
-	nextIssueNumber  int
-	issues           map[string]map[string]any
-	attachmentBodies map[string][]byte
-	attachmentStatus map[string]int
-	commandErrors    map[string][]string
+	project              map[string]any
+	projects             []map[string]any
+	nextIssueNumber      int
+	issues               map[string]map[string]any
+	attachmentBodies     map[string][]byte
+	attachmentStatus     map[string]int
+	commandErrors        map[string][]string
+	publicProjectsStatus int
 }
 
 func newFakeState() *fakeState {
@@ -636,6 +660,12 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/api/projects":
+		if s.publicProjectsStatus != 0 {
+			writeJSON(s.publicProjectsStatus, map[string]any{"error": "forbidden"})
+			return
+		}
+		fallthrough
 	case r.Method == http.MethodGet && r.URL.Path == "/api/admin/projects":
 		query := strings.ToLower(r.URL.Query().Get("query"))
 		projects := make([]map[string]any, 0, len(s.projects))
