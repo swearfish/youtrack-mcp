@@ -58,6 +58,7 @@ func serializeIssue(issue map[string]any) Issue {
 		Project:            projectFromMap(asMap(issue["project"])),
 		Status:             extractStatus(customFields),
 		AcceptanceCriteria: extractAcceptanceCriteria(customFields),
+		CustomFields:       extractCustomFields(customFields),
 		LinkedTickets:      extractLinkedTickets(asMapSlice(issue["links"])),
 	}
 }
@@ -105,6 +106,22 @@ func extractAcceptanceCriteria(customFields []map[string]any) string {
 		return fieldValueToText(field["value"])
 	}
 	return ""
+}
+
+func extractCustomFields(customFields []map[string]any) []IssueCustomField {
+	result := make([]IssueCustomField, 0, len(customFields))
+	for _, field := range customFields {
+		entry := IssueCustomField{
+			Name:  textValue(field["name"]),
+			Type:  textValue(field["$type"]),
+			Value: fieldValueToText(field["value"]),
+		}
+		if entry.Name == "" && entry.Type == "" && entry.Value == "" {
+			continue
+		}
+		result = append(result, entry)
+	}
+	return result
 }
 
 func extractLinkedTickets(links []map[string]any) []string {

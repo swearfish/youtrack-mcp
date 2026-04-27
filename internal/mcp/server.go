@@ -39,7 +39,7 @@ func addTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("fetch"),
 		Annotations: readOnlyToolAnnotations(),
-		Description: "Fetch a YouTrack ticket by explicit `ticket` and return structured JSON issue data. Set `attachments=true` to inline text attachment content into the JSON response, and use `attachment_path` to download attachments to disk and return saved file paths in the JSON.",
+		Description: "Fetch a YouTrack ticket by explicit `ticket` and return structured JSON issue data, including `custom_fields` plus synthesized fields like `status`. Set `attachments=true` to inline text attachment content into the JSON response, and use `attachment_path` to download attachments to disk and return saved file paths in the JSON.",
 	}, fetchYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{

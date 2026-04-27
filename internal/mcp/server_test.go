@@ -38,6 +38,9 @@ func TestStructuredFetchReturnsIssue(t *testing.T) {
 	if payload.Ticket != "YT-39" || payload.Summary != "Update tickets" || payload.Status != "Open" {
 		t.Fatalf("unexpected structured issue: %+v", payload)
 	}
+	if len(payload.CustomFields) != 2 || payload.CustomFields[1].Name != "Priority" || payload.CustomFields[1].Value != "Major" {
+		t.Fatalf("expected structured custom fields in fetch payload, got %+v", payload.CustomFields)
+	}
 }
 
 func TestSearchReturnsStructuredIssues(t *testing.T) {
@@ -242,6 +245,10 @@ func newFetchTestServer() *httptest.Server {
 					"name":  "State",
 					"$type": "StateIssueCustomField",
 					"value": map[string]any{"name": "Open"},
+				}, {
+					"name":  "Priority",
+					"$type": "EnumIssueCustomField",
+					"value": map[string]any{"name": "Major"},
 				}},
 				"links":       []map[string]any{},
 				"attachments": []map[string]any{},
@@ -260,6 +267,10 @@ func newFetchTestServer() *httptest.Server {
 					"name":  "State",
 					"$type": "StateIssueCustomField",
 					"value": map[string]any{"name": "Open"},
+				}, {
+					"name":  "Priority",
+					"$type": "EnumIssueCustomField",
+					"value": map[string]any{"name": "Major"},
 				}},
 				"links": []map[string]any{{
 					"direction": "OUTWARD",

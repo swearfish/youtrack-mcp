@@ -86,15 +86,22 @@ type Project struct {
 }
 
 type Issue struct {
-	ID                 string            `json:"id,omitempty"`
-	Ticket             string            `json:"ticket,omitempty"`
-	Summary            string            `json:"summary,omitempty"`
-	Description        string            `json:"description,omitempty"`
-	Project            Project           `json:"project,omitempty"`
-	Status             string            `json:"status,omitempty"`
-	AcceptanceCriteria string            `json:"acceptance_criteria,omitempty"`
-	LinkedTickets      []string          `json:"linked_tickets,omitempty"`
-	Attachments        []IssueAttachment `json:"attachments,omitempty"`
+	ID                 string             `json:"id,omitempty"`
+	Ticket             string             `json:"ticket,omitempty"`
+	Summary            string             `json:"summary,omitempty"`
+	Description        string             `json:"description,omitempty"`
+	Project            Project            `json:"project,omitempty"`
+	Status             string             `json:"status,omitempty"`
+	AcceptanceCriteria string             `json:"acceptance_criteria,omitempty"`
+	CustomFields       []IssueCustomField `json:"custom_fields,omitempty"`
+	LinkedTickets      []string           `json:"linked_tickets,omitempty"`
+	Attachments        []IssueAttachment  `json:"attachments,omitempty"`
+}
+
+type IssueCustomField struct {
+	Name  string `json:"name,omitempty"`
+	Type  string `json:"type,omitempty"`
+	Value string `json:"value,omitempty"`
 }
 
 type IssueAttachment struct {
