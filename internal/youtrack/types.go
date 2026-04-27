@@ -7,21 +7,25 @@ import (
 )
 
 const (
-	projectFields                  = "id,name,shortName"
-	issueDetailFields              = "id,idReadable,summary,description,project(id,name,shortName),customFields(name,$type,value(name,presentation,text,login,fullName)),links(id,direction,linkType(name,sourceToTarget,targetToSource),issues(id,idReadable,summary))"
-	linkFields                     = "id,direction,linkType(name,sourceToTarget,targetToSource),issues(id,idReadable,summary)"
-	commandSuggestionFields        = "query,suggestions(option,description,group)"
-	defaultStoryIssueFields        = "summary,description,customFields(name,value(name,presentation,text))"
-	storyLinkFields                = "links(direction,linkType(name,sourceToTarget,targetToSource),issues(idReadable,summary))"
-	storyAttachmentFields          = "attachments(name,url,size,mimeType)"
-	maxAttachmentNameLength        = 128
-	maxHTTPGetAttempts             = 2
-	maxJSONResponseBytes           = 1 << 20
-	maxAttachmentBytes             = 8 << 20
-	defaultMaxIssueAttachmentBytes = 32 << 20
+	projectFields                   = "id,name,shortName"
+	issueDetailFields               = "id,idReadable,summary,description,project(id,name,shortName),customFields(name,$type,value(name,presentation,text,login,fullName)),links(id,direction,linkType(name,sourceToTarget,targetToSource),issues(id,idReadable,summary))"
+	linkFields                      = "id,direction,linkType(name,sourceToTarget,targetToSource),issues(id,idReadable,summary)"
+	commandSuggestionFields         = "query,suggestions(option,description,group)"
+	defaultStoryIssueFields         = "summary,description,customFields(name,value(name,presentation,text))"
+	storyLinkFields                 = "links(direction,linkType(name,sourceToTarget,targetToSource),issues(idReadable,summary))"
+	storyAttachmentFields           = "attachments(name,url,size,mimeType)"
+	maxAttachmentNameLength         = 128
+	maxHTTPGetAttempts              = 2
+	maxJSONResponseBytes            = 1 << 20
+	maxAttachmentBytes              = 8 << 20
+	defaultMaxIssueAttachmentBytes  = 32 << 20
+	defaultMaxInlineAttachmentBytes = 64 << 10
+	defaultMaxIssueInlineBytes      = 256 << 10
 )
 
 var maxIssueAttachmentBytes int64 = defaultMaxIssueAttachmentBytes
+var maxInlineAttachmentBytes int64 = defaultMaxInlineAttachmentBytes
+var maxIssueInlineBytes int64 = defaultMaxIssueInlineBytes
 
 var textAttachmentTypes = []string{
 	"application/json",

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode/utf8"
 )
 
 func (c *Client) buildAttachmentSections(ctx context.Context, attachments []map[string]any, includeContent bool, attachmentPath string) ([]string, error) {
@@ -19,6 +20,7 @@ func (c *Client) buildAttachmentSections(ctx context.Context, attachments []map[
 
 	sections := make([]string, 0, len(attachments))
 	var totalDownloadedBytes int64
+	totalInlineBytesRemaining := maxIssueInlineBytes
 	for _, attachment := range attachments {
 		name := textValue(attachment["name"])
 		if name == "" {
@@ -62,8 +64,13 @@ func (c *Client) buildAttachmentSections(ctx context.Context, attachments []map[
 		}
 
 		if includeContent {
-			if decoded := decodeAttachmentText(content, attachment); decoded != "" {
+			if decoded, note := inlineAttachmentText(content, attachment, &totalInlineBytesRemaining); decoded != "" {
 				lines = append(lines, "", renderTextCodeBlock(decoded))
+				if note != "" {
+					lines = append(lines, note)
+				}
+			} else if note != "" {
+				lines = append(lines, "", note)
 			} else {
 				lines = append(lines, "", "Binary attachment downloaded but content was omitted.")
 			}
@@ -83,6 +90,7 @@ func (c *Client) buildStructuredAttachments(ctx context.Context, attachments []m
 
 	result := make([]IssueAttachment, 0, len(attachments))
 	var totalDownloadedBytes int64
+	totalInlineBytesRemaining := maxIssueInlineBytes
 	for _, attachment := range attachments {
 		entry := IssueAttachment{
 			Name:        firstNonEmpty(textValue(attachment["name"]), "attachment"),
@@ -109,7 +117,15 @@ func (c *Client) buildStructuredAttachments(ctx context.Context, attachments []m
 				entry.SavedPath = savedPath
 			}
 			if includeContent {
-				entry.Content = decodeAttachmentText(content, attachment)
+				decoded, note := inlineAttachmentText(content, attachment, &totalInlineBytesRemaining)
+				entry.Content = decoded
+				if note != "" {
+					if entry.Content != "" {
+						entry.Content += "\n\n" + note
+					} else {
+						entry.Content = note
+					}
+				}
 			}
 		}
 
@@ -330,6 +346,45 @@ func decodeAttachmentText(content []byte, attachment map[string]any) string {
 		return ""
 	}
 	return strings.ToValidUTF8(string(content), "")
+}
+
+func inlineAttachmentText(content []byte, attachment map[string]any, remaining *int64) (string, string) {
+	decoded := decodeAttachmentText(content, attachment)
+	if decoded == "" {
+		return "", ""
+	}
+	if remaining != nil && *remaining <= 0 {
+		return "", "Text attachment content was omitted because the inline attachment budget was exhausted."
+	}
+
+	limit := maxInlineAttachmentBytes
+	if remaining != nil && *remaining < limit {
+		limit = *remaining
+	}
+	if limit <= 0 {
+		return "", "Text attachment content was omitted because the inline attachment budget was exhausted."
+	}
+
+	truncated := truncateUTF8(decoded, limit)
+	if remaining != nil {
+		*remaining -= int64(len(truncated))
+	}
+
+	if len(truncated) < len(decoded) {
+		return truncated, fmt.Sprintf("Text attachment content was truncated to %d bytes. Use attachment_path to save the full file.", limit)
+	}
+	return truncated, ""
+}
+
+func truncateUTF8(text string, limit int64) string {
+	if int64(len(text)) <= limit {
+		return text
+	}
+	truncated := text[:limit]
+	for !utf8.ValidString(truncated) && len(truncated) > 0 {
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated
 }
 
 func isTextAttachment(attachment map[string]any) bool {

@@ -464,6 +464,72 @@ func TestFetchTicketRejectsExcessiveTotalAttachmentBytes(t *testing.T) {
 	}
 }
 
+func TestFetchTicketTruncatesInlineAttachmentContent(t *testing.T) {
+	originalPerAttachment := maxInlineAttachmentBytes
+	originalPerIssue := maxIssueInlineBytes
+	maxInlineAttachmentBytes = 5
+	maxIssueInlineBytes = 5
+	t.Cleanup(func() {
+		maxInlineAttachmentBytes = originalPerAttachment
+		maxIssueInlineBytes = originalPerIssue
+	})
+
+	state := newFakeState()
+	state.issues["YT-39"]["attachments"] = []map[string]any{
+		{"name": "notes.txt", "url": "/files/notes.txt", "size": 11, "mimeType": "text/plain"},
+	}
+	state.attachmentBodies["/files/notes.txt"] = []byte("hello world")
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	issue, err := client.FetchTicket(context.Background(), "YT-39", true, "")
+	if err != nil {
+		t.Fatalf("fetch ticket with truncated attachment: %v", err)
+	}
+	if !strings.Contains(issue.Attachments[0].Content, "hello") || !strings.Contains(issue.Attachments[0].Content, "truncated to 5 bytes") {
+		t.Fatalf("expected truncated structured attachment content, got %+v", issue.Attachments[0])
+	}
+}
+
+func TestFetchStoryNotesTruncatedInlineAttachmentContent(t *testing.T) {
+	originalPerAttachment := maxInlineAttachmentBytes
+	originalPerIssue := maxIssueInlineBytes
+	maxInlineAttachmentBytes = 5
+	maxIssueInlineBytes = 5
+	t.Cleanup(func() {
+		maxInlineAttachmentBytes = originalPerAttachment
+		maxIssueInlineBytes = originalPerIssue
+	})
+
+	state := newFakeState()
+	state.issues["YT-39"]["attachments"] = []map[string]any{
+		{"name": "notes.txt", "url": "/files/notes.txt", "size": 11, "mimeType": "text/plain"},
+	}
+	state.attachmentBodies["/files/notes.txt"] = []byte("hello world")
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	story, err := client.FetchStory(context.Background(), "YT-39", true, "")
+	if err != nil {
+		t.Fatalf("fetch story with truncated attachment: %v", err)
+	}
+	if !strings.Contains(story, "hello") || !strings.Contains(story, "truncated to 5 bytes") {
+		t.Fatalf("expected truncated markdown attachment content, got %s", story)
+	}
+}
+
 func TestFetchStoryAttachmentDownloadFailure(t *testing.T) {
 	t.Parallel()
 
