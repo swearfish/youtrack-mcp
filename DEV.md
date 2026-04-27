@@ -146,6 +146,7 @@ It handles:
 - `internal/config` holds env var names and constants
 - `YOUTRACK_HTTP_TIMEOUT` can override the default 30s HTTP client timeout with a Go duration string
 - `YOUTRACK_TOOL_PREFIX` defaults tool names to the `youtrack_` prefix; set it to an empty string to expose unprefixed names
+- `.env` support is intentionally single-line and minimal: matching outer quotes are stripped, but escape sequences are not processed
 - `internal/version` is populated at build time from `git describe --tags --always --dirty` and exposed by the CLI and MCP server metadata
 
 ## Design decisions
