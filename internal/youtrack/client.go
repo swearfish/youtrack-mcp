@@ -878,12 +878,19 @@ func projectFromMap(data map[string]any) Project {
 
 func findStatusField(customFields []map[string]any) map[string]any {
 	for _, field := range customFields {
-		fieldName := strings.ToLower(strings.TrimSpace(textValue(field["name"])))
 		fieldType := strings.ToLower(strings.TrimSpace(textValue(field["$type"])))
-		if fieldName == "state" || fieldName == "status" || fieldType == "stateissuecustomfield" {
+		if fieldType == "stateissuecustomfield" {
 			return field
 		}
 	}
+
+	for _, field := range customFields {
+		fieldName := strings.ToLower(strings.TrimSpace(textValue(field["name"])))
+		if fieldName == "state" || fieldName == "status" {
+			return field
+		}
+	}
+
 	return nil
 }
 

@@ -516,6 +516,29 @@ func TestReadLimitedBodyRejectsOversizedInput(t *testing.T) {
 	}
 }
 
+func TestFindStatusFieldPrefersTypedStateField(t *testing.T) {
+	t.Parallel()
+
+	field := findStatusField([]map[string]any{
+		{
+			"name":  "Status",
+			"$type": "EnumIssueCustomField",
+			"value": map[string]any{"name": "Not workflow state"},
+		},
+		{
+			"name":  "Workflow state",
+			"$type": "StateIssueCustomField",
+			"value": map[string]any{"name": "In Progress"},
+		},
+	})
+	if field == nil {
+		t.Fatalf("expected status field to be found")
+	}
+	if textValue(field["name"]) != "Workflow state" {
+		t.Fatalf("expected typed state field to win, got %+v", field)
+	}
+}
+
 func TestStoreAttachmentDoesNotOverwriteExistingFile(t *testing.T) {
 	t.Parallel()
 
