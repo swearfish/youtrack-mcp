@@ -37,7 +37,7 @@ func addTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "fetch",
 		Annotations: readOnlyToolAnnotations(),
-		Description: "Fetch a YouTrack ticket by explicit `ticket`. By default this returns structured JSON issue data like the other tools. Set `markdown=true` to get the rendered Markdown story output instead. In structured mode, `attachments=true` inlines text attachment content into the JSON response, and `attachment_path` downloads attachments to disk and returns saved file paths in the JSON. In Markdown mode, the same flags control inline attachment sections and attachment downloads.",
+		Description: "Fetch a YouTrack ticket by explicit `ticket`. By default this returns structured JSON issue data. Set `markdown=true` to get rendered Markdown instead. In structured mode, `attachments=true` inlines text attachment content into the JSON response, and `attachment_path` downloads attachments to disk and returns saved file paths in the JSON. In Markdown mode, the same flags control inline attachment sections and attachment downloads.",
 	}, fetchYouTrackUserStory)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
@@ -67,7 +67,7 @@ func addTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        "link",
 		Annotations: writeToolAnnotations(false),
-		Description: "Create a YouTrack link from `ticket` to `linked_ticket` using the provided `relation` command text, for example `relates to`.",
+		Description: "Create a YouTrack link from `ticket` to `linked_ticket` using the provided `relation` command text, for example `relates to`. Multi-word or punctuated relation values are automatically quoted before sending the command to YouTrack.",
 	}, linkYouTrackTickets)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
