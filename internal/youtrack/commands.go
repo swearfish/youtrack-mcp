@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"unicode"
 )
 
 func (c *Client) GetTicketStatuses(ctx context.Context, ticketID string) (TicketStatuses, error) {
@@ -22,7 +23,7 @@ func (c *Client) GetTicketStatuses(ctx context.Context, ticketID string) (Ticket
 	}
 
 	fieldName := textValue(statusField["name"])
-	query := fieldName + " "
+	query := commandFieldToken(fieldName) + " "
 	var response map[string]any
 	if err := c.doJSON(ctx, http.MethodPost, "/api/commands/assist", map[string]string{
 		"fields": commandSuggestionFields,
@@ -37,11 +38,11 @@ func (c *Client) GetTicketStatuses(ctx context.Context, ticketID string) (Ticket
 	statuses := []string{}
 	for _, suggestion := range asMapSlice(response["suggestions"]) {
 		option := textValue(suggestion["option"])
-		if !strings.HasPrefix(option, query) {
+		candidate := stripAssistQueryPrefix(option, fieldName)
+		if candidate == "" {
 			continue
 		}
-		candidate := strings.TrimSpace(strings.TrimPrefix(option, query))
-		if candidate == "" || slices.Contains(statuses, candidate) {
+		if slices.Contains(statuses, candidate) {
 			continue
 		}
 		statuses = append(statuses, candidate)
@@ -68,7 +69,7 @@ func (c *Client) UpdateTicketStatus(ctx context.Context, ticketID string, status
 
 	fieldName := textValue(statusField["name"])
 	previous := fieldValueToText(statusField["value"])
-	if err := c.applyCommand(ctx, fieldName+" "+quoteCommandValue(status), []string{ticketID}); err != nil {
+	if err := c.applyCommand(ctx, commandFieldToken(fieldName)+" "+quoteCommandValue(status), []string{ticketID}); err != nil {
 		return StatusUpdate{}, err
 	}
 
@@ -154,6 +155,33 @@ func (c *Client) applyCommand(ctx context.Context, query string, ticketIDs []str
 func quoteCommandValue(value string) string {
 	escaped := strings.NewReplacer(`\`, `\\`, `}`, `\}`).Replace(value)
 	return "{" + escaped + "}"
+}
+
+func commandFieldToken(fieldName string) string {
+	if needsCommandQuoting(fieldName) {
+		return quoteCommandValue(fieldName)
+	}
+	return strings.TrimSpace(fieldName)
+}
+
+func stripAssistQueryPrefix(option string, fieldName string) string {
+	prefixes := []string{
+		commandFieldToken(fieldName) + " ",
+		strings.TrimSpace(fieldName) + " ",
+	}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(option, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(option, prefix))
+		}
+	}
+	return ""
+}
+
+func needsCommandQuoting(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	return strings.IndexFunc(trimmed, func(r rune) bool {
+		return unicode.IsSpace(r) || (!unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != '-')
+	}) >= 0
 }
 
 func findMatchingLink(links []map[string]any, linkedTicketID string, relation string) (map[string]any, map[string]any, error) {

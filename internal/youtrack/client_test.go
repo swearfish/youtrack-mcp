@@ -287,6 +287,37 @@ func TestLinkTicketsSurfacesCommandErrors(t *testing.T) {
 	}
 }
 
+func TestStatusCommandsSupportMultiWordFieldNames(t *testing.T) {
+	t.Parallel()
+
+	state := newFakeState()
+	state.issues["YT-39"]["status_field_name"] = "State Type"
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	statuses, err := client.GetTicketStatuses(context.Background(), "YT-39")
+	if err != nil {
+		t.Fatalf("get statuses with multi-word field: %v", err)
+	}
+	if statuses.FieldName != "State Type" || len(statuses.Statuses) != 3 {
+		t.Fatalf("unexpected statuses for multi-word field: %+v", statuses)
+	}
+
+	update, err := client.UpdateTicketStatus(context.Background(), "YT-39", "Fixed")
+	if err != nil {
+		t.Fatalf("update status with multi-word field: %v", err)
+	}
+	if update.FieldName != "State Type" || update.Status != "Fixed" {
+		t.Fatalf("unexpected update result for multi-word field: %+v", update)
+	}
+}
+
 func TestFetchStoryIncludesDownloadedAttachments(t *testing.T) {
 	t.Parallel()
 
@@ -946,8 +977,9 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 		issueRef := anyToMapSlice(payload["issues"])[0]["idReadable"].(string)
 		issue := s.issues[issueRef]
 		options := []map[string]any{}
+		fieldPrefix := commandFieldToken(issue["status_field_name"].(string)) + " "
 		for _, status := range issue["available_statuses"].([]string) {
-			options = append(options, map[string]any{"option": issue["status_field_name"].(string) + " " + status})
+			options = append(options, map[string]any{"option": fieldPrefix + status})
 		}
 		writeJSON(http.StatusOK, map[string]any{"suggestions": options})
 		return
@@ -967,8 +999,9 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 		issues := anyToMapSlice(payload["issues"])
 		ticket := issues[0]["idReadable"].(string)
 		issue := s.issues[ticket]
-		if strings.HasPrefix(query, "State ") {
-			issue["status"] = parseFakeCommandValue(strings.TrimPrefix(query, "State "))
+		fieldPrefix := commandFieldToken(issue["status_field_name"].(string)) + " "
+		if strings.HasPrefix(query, fieldPrefix) {
+			issue["status"] = parseFakeCommandValue(strings.TrimPrefix(query, fieldPrefix))
 			writeJSON(http.StatusOK, map[string]any{
 				"commands": []map[string]any{{"errors": []string{}}},
 			})
