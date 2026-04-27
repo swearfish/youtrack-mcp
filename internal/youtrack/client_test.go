@@ -575,6 +575,17 @@ func TestQuoteCommandValueEscapesBackslashesAndQuotes(t *testing.T) {
 	}
 }
 
+func TestInt64ValueSupportsUnsignedIntegers(t *testing.T) {
+	t.Parallel()
+
+	if got := int64Value(uint(42)); got != 42 {
+		t.Fatalf("expected uint to convert to 42, got %d", got)
+	}
+	if got := int64Value(uint32(99)); got != 99 {
+		t.Fatalf("expected uint32 to convert to 99, got %d", got)
+	}
+}
+
 func TestStoreAttachmentDoesNotOverwriteExistingFile(t *testing.T) {
 	t.Parallel()
 

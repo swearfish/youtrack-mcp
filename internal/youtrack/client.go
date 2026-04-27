@@ -1234,8 +1234,24 @@ func int64Value(value any) int64 {
 	switch typed := value.(type) {
 	case int:
 		return int64(typed)
+	case int8:
+		return int64(typed)
+	case int16:
+		return int64(typed)
+	case int32:
+		return int64(typed)
 	case int64:
 		return typed
+	case uint:
+		return int64(typed)
+	case uint8:
+		return int64(typed)
+	case uint16:
+		return int64(typed)
+	case uint32:
+		return int64(typed)
+	case uint64:
+		return int64(typed)
 	case float64:
 		return int64(typed)
 	case json.Number:
