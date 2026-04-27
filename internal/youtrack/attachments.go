@@ -156,6 +156,9 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 		if err != nil {
 			lastErr = fmt.Errorf("download attachment: %w", err)
 			if shouldRetryGET(attempt, 0, err) {
+				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
+					return nil, waitErr
+				}
 				continue
 			}
 			return nil, lastErr
@@ -169,6 +172,9 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 		if response.StatusCode >= 400 {
 			lastErr = fmt.Errorf("download attachment failed: %s", formatHTTPError(response.StatusCode, body))
 			if shouldRetryGET(attempt, response.StatusCode, nil) {
+				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
+					return nil, waitErr
+				}
 				continue
 			}
 			return nil, lastErr

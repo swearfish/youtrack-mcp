@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func (c *Client) doJSON(ctx context.Context, method string, requestPath string, query map[string]string, payload any, out any) error {
@@ -60,6 +62,9 @@ func (c *Client) doJSON(ctx context.Context, method string, requestPath string, 
 		if err != nil {
 			lastErr = fmt.Errorf("perform request: %w", err)
 			if shouldRetryGET(attempt, 0, err) {
+				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
+					return waitErr
+				}
 				continue
 			}
 			return lastErr
@@ -73,6 +78,9 @@ func (c *Client) doJSON(ctx context.Context, method string, requestPath string, 
 		if response.StatusCode >= 400 {
 			lastErr = fmt.Errorf("youtrack request failed: %s", formatHTTPError(response.StatusCode, body))
 			if shouldRetryGET(attempt, response.StatusCode, nil) {
+				if waitErr := waitForRetry(ctx, attempt); waitErr != nil {
+					return waitErr
+				}
 				continue
 			}
 			return lastErr
@@ -101,6 +109,19 @@ func shouldRetryGET(attempt int, statusCode int, err error) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func waitForRetry(ctx context.Context, attempt int) error {
+	baseDelay := time.Duration(attempt+1) * 50 * time.Millisecond
+	jitter := time.Duration(rand.Int63n(int64(25 * time.Millisecond)))
+	timer := time.NewTimer(baseDelay + jitter)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
