@@ -18,6 +18,7 @@ func (c *Client) buildAttachmentSections(ctx context.Context, attachments []map[
 	}
 
 	sections := make([]string, 0, len(attachments))
+	var totalDownloadedBytes int64
 	for _, attachment := range attachments {
 		name := textValue(attachment["name"])
 		if name == "" {
@@ -46,6 +47,10 @@ func (c *Client) buildAttachmentSections(ctx context.Context, attachments []map[
 		content, err := c.downloadAttachment(ctx, downloadURL)
 		if err != nil {
 			return nil, err
+		}
+		totalDownloadedBytes += int64(len(content))
+		if totalDownloadedBytes > maxIssueAttachmentBytes {
+			return nil, fmt.Errorf("attachment downloads exceed %d bytes for one issue", maxIssueAttachmentBytes)
 		}
 
 		if targetDir != "" {
@@ -77,6 +82,7 @@ func (c *Client) buildStructuredAttachments(ctx context.Context, attachments []m
 	}
 
 	result := make([]IssueAttachment, 0, len(attachments))
+	var totalDownloadedBytes int64
 	for _, attachment := range attachments {
 		entry := IssueAttachment{
 			Name:        firstNonEmpty(textValue(attachment["name"]), "attachment"),
@@ -90,6 +96,10 @@ func (c *Client) buildStructuredAttachments(ctx context.Context, attachments []m
 			content, err := c.downloadAttachment(ctx, entry.DownloadURL)
 			if err != nil {
 				return nil, err
+			}
+			totalDownloadedBytes += int64(len(content))
+			if totalDownloadedBytes > maxIssueAttachmentBytes {
+				return nil, fmt.Errorf("attachment downloads exceed %d bytes for one issue", maxIssueAttachmentBytes)
 			}
 			if targetDir != "" {
 				savedPath, err := storeAttachment(targetDir, entry.Name, content)

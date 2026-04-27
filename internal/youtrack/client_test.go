@@ -432,6 +432,38 @@ func TestFetchTicketIncludesStructuredAttachments(t *testing.T) {
 	}
 }
 
+func TestFetchTicketRejectsExcessiveTotalAttachmentBytes(t *testing.T) {
+	originalLimit := maxIssueAttachmentBytes
+	maxIssueAttachmentBytes = 7
+	t.Cleanup(func() {
+		maxIssueAttachmentBytes = originalLimit
+	})
+
+	state := newFakeState()
+	state.issues["YT-39"]["attachments"] = []map[string]any{
+		{"name": "one.txt", "url": "/files/one.txt", "size": 4, "mimeType": "text/plain"},
+		{"name": "two.txt", "url": "/files/two.txt", "size": 4, "mimeType": "text/plain"},
+	}
+	state.attachmentBodies["/files/one.txt"] = []byte("1234")
+	state.attachmentBodies["/files/two.txt"] = []byte("5678")
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = client.FetchTicket(context.Background(), "YT-39", true, "")
+	if err == nil {
+		t.Fatalf("expected total attachment size limit to fail")
+	}
+	if !strings.Contains(err.Error(), "attachment downloads exceed") {
+		t.Fatalf("unexpected total attachment limit error: %v", err)
+	}
+}
+
 func TestFetchStoryAttachmentDownloadFailure(t *testing.T) {
 	t.Parallel()
 
