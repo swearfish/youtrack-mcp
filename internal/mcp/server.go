@@ -210,6 +210,9 @@ func updateYouTrackTicket(ctx context.Context, _ *sdkmcp.CallToolRequest, input 
 	if err != nil {
 		return nil, youtrack.Issue{}, err
 	}
+	if input.Summary == nil && input.Description == nil && len(input.CustomFields) == 0 {
+		return nil, youtrack.Issue{}, fmt.Errorf("provide at least one of summary, description, or custom_fields")
+	}
 
 	result, err := client.UpdateTicket(ctx, ticketID, input.Summary, input.Description, input.CustomFields)
 	return nil, result, err

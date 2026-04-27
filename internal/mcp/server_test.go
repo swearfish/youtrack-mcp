@@ -158,6 +158,24 @@ func TestResolveClientAndTicketRequiresConfiguredEnv(t *testing.T) {
 	}
 }
 
+func TestUpdateRejectsMissingFieldsBeforeCallingYouTrack(t *testing.T) {
+	server := newFetchTestServer()
+	defer server.Close()
+
+	t.Setenv(config.EnvYouTrackURL, server.URL)
+	t.Setenv(config.EnvYouTrackToken, "perm:test")
+
+	_, _, err := updateYouTrackTicket(context.Background(), nil, updateTicketArgs{
+		Ticket: "YT-39",
+	})
+	if err == nil {
+		t.Fatalf("expected empty update to fail")
+	}
+	if !strings.Contains(err.Error(), "provide at least one of summary, description, or custom_fields") {
+		t.Fatalf("unexpected update validation error: %v", err)
+	}
+}
+
 func newFetchTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/api/issues" {
