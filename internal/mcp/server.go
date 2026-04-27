@@ -54,31 +54,31 @@ func addTools(server *sdkmcp.Server) {
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("update_status"),
-		Annotations: writeToolAnnotations(true),
+		Annotations: writeToolAnnotations(true, true),
 		Description: "Update the status of an explicit YouTrack `ticket` to the provided `status` value. Use the status-listing tool first when you need YouTrack-valid status names.",
 	}, updateYouTrackTicketStatus)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("create"),
-		Annotations: writeToolAnnotations(false),
+		Annotations: writeToolAnnotations(false, false),
 		Description: "Create a new YouTrack ticket in the specified `project` with the provided `summary`, and optional `description` and `custom_fields` JSON.",
 	}, createYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("update"),
-		Annotations: writeToolAnnotations(true),
+		Annotations: writeToolAnnotations(true, true),
 		Description: "Update an existing explicit YouTrack `ticket`. Provide at least one of `summary`, `description`, or `custom_fields`; calling this tool with none of them is an error. Set `summary` or `description` to an explicit empty string when you want to clear that field.",
 	}, updateYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("link"),
-		Annotations: writeToolAnnotations(false),
+		Annotations: writeToolAnnotations(false, false),
 		Description: "Create a YouTrack link from `ticket` to `linked_ticket` using the provided `relation` command text, for example `relates to`. Multi-word or punctuated relation values are automatically quoted before sending the command to YouTrack.",
 	}, linkYouTrackTickets)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("unlink"),
-		Annotations: writeToolAnnotations(true),
+		Annotations: writeToolAnnotations(true, true),
 		Description: "Remove an existing YouTrack link between `ticket` and `linked_ticket`. Provide `relation` when the ticket pair has multiple link types and you need to disambiguate which one to remove.",
 	}, unlinkYouTrackTickets)
 }
@@ -94,12 +94,16 @@ func readOnlyToolAnnotations() *sdkmcp.ToolAnnotations {
 	}
 }
 
-func writeToolAnnotations(idempotent bool) *sdkmcp.ToolAnnotations {
+func writeToolAnnotations(idempotent bool, destructive bool) *sdkmcp.ToolAnnotations {
 	return &sdkmcp.ToolAnnotations{
-		DestructiveHint: &trueBool,
+		DestructiveHint: boolPtr(destructive),
 		IdempotentHint:  idempotent,
 		OpenWorldHint:   &falseBool,
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 type repoTicketArgs struct {

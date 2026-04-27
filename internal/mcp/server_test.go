@@ -189,6 +189,23 @@ func TestToolNameAllowsEmptyPrefix(t *testing.T) {
 	}
 }
 
+func TestWriteToolAnnotationsMarkCreateAndLinkNonDestructive(t *testing.T) {
+	createAnnotations := writeToolAnnotations(false, false)
+	if createAnnotations.DestructiveHint == nil || *createAnnotations.DestructiveHint {
+		t.Fatalf("expected create annotations to be non-destructive, got %+v", createAnnotations)
+	}
+
+	linkAnnotations := writeToolAnnotations(false, false)
+	if linkAnnotations.DestructiveHint == nil || *linkAnnotations.DestructiveHint {
+		t.Fatalf("expected link annotations to be non-destructive, got %+v", linkAnnotations)
+	}
+
+	updateAnnotations := writeToolAnnotations(true, true)
+	if updateAnnotations.DestructiveHint == nil || !*updateAnnotations.DestructiveHint {
+		t.Fatalf("expected update annotations to stay destructive, got %+v", updateAnnotations)
+	}
+}
+
 func newFetchTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/api/issues" {
