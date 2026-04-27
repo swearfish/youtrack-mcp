@@ -49,7 +49,7 @@ Current targets:
 
 All builds use `CGO_ENABLED=0`.
 
-The module targets Go 1.22+.
+The module targets Go 1.25+.
 
 ## Testing
 
