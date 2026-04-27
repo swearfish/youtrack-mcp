@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const maxEnvLineBytes = 1 << 20
+
 type ApplyOptions struct {
 	Override bool
 }
@@ -47,6 +49,7 @@ func Load(path string) (map[string]string, error) {
 
 	values := map[string]string{}
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 4096), maxEnvLineBytes)
 	lineNumber := 0
 	for scanner.Scan() {
 		lineNumber++

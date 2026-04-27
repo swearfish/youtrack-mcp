@@ -3,6 +3,7 @@ package envfile
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -90,5 +91,25 @@ func TestApplyOverridesExistingEnvironmentWhenRequested(t *testing.T) {
 
 	if got := os.Getenv("YOUTRACK_URL"); got != "https://from-file.test" {
 		t.Fatalf("unexpected YOUTRACK_URL: %q", got)
+	}
+}
+
+func TestLoadSupportsLargeSingleLineValues(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".env")
+	largeValue := strings.Repeat("a", 70*1024)
+	content := "YOUTRACK_API_TOKEN=" + largeValue + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	values, err := Load(path)
+	if err != nil {
+		t.Fatalf("load env file with large value: %v", err)
+	}
+	if got := values["YOUTRACK_API_TOKEN"]; got != largeValue {
+		t.Fatalf("unexpected large env value length: got %d want %d", len(got), len(largeValue))
 	}
 }
