@@ -152,8 +152,8 @@ func (c *Client) applyCommand(ctx context.Context, query string, ticketIDs []str
 }
 
 func quoteCommandValue(value string) string {
-	escaped := strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(value)
-	return "'" + escaped + "'"
+	escaped := strings.NewReplacer(`\`, `\\`, `}`, `\}`).Replace(value)
+	return "{" + escaped + "}"
 }
 
 func findMatchingLink(links []map[string]any, linkedTicketID string, relation string) (map[string]any, map[string]any, error) {

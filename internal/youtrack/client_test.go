@@ -232,7 +232,7 @@ func TestUpdateTicketStatusSurfacesCommandErrors(t *testing.T) {
 	t.Parallel()
 
 	state := newFakeState()
-	state.commandErrors["State 'Blocked'"] = []string{"Unknown state Blocked"}
+	state.commandErrors["State {Blocked}"] = []string{"Unknown state Blocked"}
 
 	server := httptest.NewServer(http.HandlerFunc(state.handle))
 	defer server.Close()
@@ -255,7 +255,7 @@ func TestLinkTicketsSurfacesCommandErrors(t *testing.T) {
 	t.Parallel()
 
 	state := newFakeState()
-	state.commandErrors["'invalid relation' YT-40"] = []string{"Unknown link type invalid relation"}
+	state.commandErrors["{invalid relation} YT-40"] = []string{"Unknown link type invalid relation"}
 	state.issues["YT-40"] = map[string]any{
 		"id":                 "2-40",
 		"idReadable":         "YT-40",
@@ -562,12 +562,12 @@ func TestFindStatusFieldPrefersTypedStateField(t *testing.T) {
 	}
 }
 
-func TestQuoteCommandValueEscapesBackslashesAndQuotes(t *testing.T) {
+func TestQuoteCommandValueUsesCurlyBraces(t *testing.T) {
 	t.Parallel()
 
-	value := `C:\Users\O'Brien`
+	value := `C:\Users\Team}`
 	quoted := quoteCommandValue(value)
-	if quoted != `'C:\\Users\\O\'Brien'` {
+	if quoted != `{C:\\Users\\Team\}}` {
 		t.Fatalf("unexpected quoted value: %q", quoted)
 	}
 	if parsed := parseFakeCommandValue(quoted); parsed != value {
@@ -920,10 +920,10 @@ func parseFakeLinkCommand(query string) (string, string) {
 	if query == "" {
 		return "", ""
 	}
-	if strings.HasPrefix(query, "'") {
-		end := findClosingQuote(query)
+	if strings.HasPrefix(query, "{") {
+		end := findClosingBrace(query)
 		if end > 0 && end+2 <= len(query) {
-			return parseFakeQuotedValue(query[:end+1]), strings.TrimSpace(query[end+1:])
+			return parseFakeBracedValue(query[:end+1]), strings.TrimSpace(query[end+1:])
 		}
 	}
 
@@ -936,8 +936,8 @@ func parseFakeLinkCommand(query string) (string, string) {
 
 func parseFakeCommandValue(value string) string {
 	value = strings.TrimSpace(value)
-	if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") && len(value) >= 2 {
-		return parseFakeQuotedValue(value)
+	if strings.HasPrefix(value, "{") && strings.HasSuffix(value, "}") && len(value) >= 2 {
+		return parseFakeBracedValue(value)
 	}
 	if index := strings.IndexAny(value, ",[]|"); index >= 0 {
 		value = value[:index]
@@ -945,15 +945,15 @@ func parseFakeCommandValue(value string) string {
 	return strings.TrimSpace(value)
 }
 
-func parseFakeQuotedValue(value string) string {
+func parseFakeBracedValue(value string) string {
 	value = strings.TrimSpace(value)
-	if len(value) >= 2 && strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") {
+	if len(value) >= 2 && strings.HasPrefix(value, "{") && strings.HasSuffix(value, "}") {
 		value = value[1 : len(value)-1]
 	}
-	return strings.NewReplacer(`\\`, `\`, `\'`, `'`).Replace(value)
+	return strings.NewReplacer(`\\`, `\`, `\}`, `}`).Replace(value)
 }
 
-func findClosingQuote(value string) int {
+func findClosingBrace(value string) int {
 	escaped := false
 	for index := 1; index < len(value); index++ {
 		switch {
@@ -961,7 +961,7 @@ func findClosingQuote(value string) int {
 			escaped = false
 		case value[index] == '\\':
 			escaped = true
-		case value[index] == '\'':
+		case value[index] == '}':
 			return index
 		}
 	}
