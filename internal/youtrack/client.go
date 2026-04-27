@@ -629,7 +629,9 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 		if err != nil {
 			return nil, fmt.Errorf("build attachment request: %w", err)
 		}
-		request.Header.Set("Authorization", "Bearer "+c.apiToken)
+		if c.shouldAuthorizeAttachmentRequest(requestURL) {
+			request.Header.Set("Authorization", "Bearer "+c.apiToken)
+		}
 		request.Header.Set("Accept", "*/*")
 
 		response, err := c.httpClient.Do(request)
@@ -658,6 +660,18 @@ func (c *Client) downloadAttachment(ctx context.Context, attachmentURL string) (
 	}
 
 	return nil, lastErr
+}
+
+func (c *Client) shouldAuthorizeAttachmentRequest(requestURL string) bool {
+	base, err := url.Parse(c.baseURL)
+	if err != nil {
+		return false
+	}
+	target, err := url.Parse(requestURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(base.Scheme, target.Scheme) && strings.EqualFold(base.Host, target.Host)
 }
 
 func (c *Client) doJSON(ctx context.Context, method string, requestPath string, query map[string]string, payload any, out any) error {

@@ -260,6 +260,41 @@ func TestFetchStoryIncludesDownloadedAttachments(t *testing.T) {
 	}
 }
 
+func TestFetchStoryDoesNotSendAuthToCrossOriginAttachmentURL(t *testing.T) {
+	t.Parallel()
+
+	receivedAuthorization := ""
+	attachmentServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuthorization = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte("external attachment"))
+	}))
+	defer attachmentServer.Close()
+
+	state := newFakeState()
+	state.issues["YT-39"]["attachments"] = []map[string]any{
+		{"name": "external.txt", "url": attachmentServer.URL + "/external.txt", "size": 19, "mimeType": "text/plain"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "perm:test", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	story, err := client.FetchStory(context.Background(), "YT-39", true, "")
+	if err != nil {
+		t.Fatalf("fetch story with external attachment: %v", err)
+	}
+	if !strings.Contains(story, "external attachment") {
+		t.Fatalf("expected external attachment content in story, got %s", story)
+	}
+	if receivedAuthorization != "" {
+		t.Fatalf("expected no Authorization header for cross-origin attachment, got %q", receivedAuthorization)
+	}
+}
+
 func TestFetchTicketIncludesStructuredAttachments(t *testing.T) {
 	t.Parallel()
 
