@@ -111,6 +111,28 @@ func TestClientOperations(t *testing.T) {
 		t.Fatalf("expected cleared description, got %+v", cleared)
 	}
 
+	customFieldOnly, err := client.UpdateTicket(ctx, created.Ticket, nil, nil, map[string]any{
+		"name":  "Priority",
+		"$type": "EnumIssueCustomField",
+		"value": map[string]any{"name": "Critical"},
+	})
+	if err != nil {
+		t.Fatalf("update custom fields only: %v", err)
+	}
+	if customFieldOnly.Summary != "Updated summary" || customFieldOnly.Description != "" {
+		t.Fatalf("expected summary and description to stay unchanged, got %+v", customFieldOnly)
+	}
+	foundPriority := false
+	for _, field := range customFieldOnly.CustomFields {
+		if field.Name == "Priority" && field.Value == "Critical" {
+			foundPriority = true
+			break
+		}
+	}
+	if !foundPriority {
+		t.Fatalf("expected custom-field-only update to return updated priority, got %+v", customFieldOnly.CustomFields)
+	}
+
 	linkResult, err := client.LinkTickets(ctx, "YT-39", created.Ticket, "relates to")
 	if err != nil {
 		t.Fatalf("link tickets: %v", err)
