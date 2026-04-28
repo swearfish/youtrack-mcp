@@ -10,6 +10,9 @@ import (
 
 const maxEnvLineBytes = 1 << 20
 
+var getWorkingDirectory = os.Getwd
+var getExecutablePath = os.Executable
+
 type ApplyOptions struct {
 	Override bool
 }
@@ -120,18 +123,36 @@ func Apply(path string, options ApplyOptions) (string, error) {
 }
 
 func ApplyDefaultIfPresent(options ApplyOptions) (string, error) {
-	wd, err := os.Getwd()
+	wd, err := getWorkingDirectory()
 	if err != nil {
 		return "", fmt.Errorf("get working directory: %w", err)
 	}
 
-	candidate := filepath.Join(wd, ".env")
-	if _, err := os.Stat(candidate); err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
-		return "", fmt.Errorf("stat default env file: %w", err)
+	if resolved, ok, err := applyDefaultCandidate(filepath.Join(wd, ".env"), options); err != nil || ok {
+		return resolved, err
 	}
 
-	return Apply(candidate, options)
+	executablePath, err := getExecutablePath()
+	if err != nil {
+		return "", fmt.Errorf("get executable path: %w", err)
+	}
+
+	resolved, _, err := applyDefaultCandidate(filepath.Join(filepath.Dir(executablePath), ".env"), options)
+	return resolved, err
+}
+
+func applyDefaultCandidate(path string, options ApplyOptions) (string, bool, error) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("stat default env file: %w", err)
+	}
+
+	resolved, err := Apply(path, options)
+	if err != nil {
+		return "", false, err
+	}
+
+	return resolved, true, nil
 }

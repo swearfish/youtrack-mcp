@@ -12,7 +12,7 @@ Standalone MCP server for YouTrack, implemented in Go.
 
 ## Configuration
 
-Set these environment variables directly, put them in a `.env` file in the working directory, or pass `--env-file`:
+Set these environment variables directly, put them in a `.env` file in the working directory, put them in a `.env` file next to the binary, or pass `--env-file`:
 
 ```bash
 YOUTRACK_URL=https://your-youtrack-instance.example
@@ -21,7 +21,7 @@ YOUTRACK_HTTP_TIMEOUT=45s
 YOUTRACK_TOOL_PREFIX=youtrack_
 ```
 
-Existing process environment variables take precedence over values loaded from `.env` or `--env-file` unless you pass `--override-env`.
+Existing process environment variables take precedence over values loaded from `.env` or `--env-file` unless you pass `--override-env`. When `--env-file` is omitted, the CLI auto-loads `.env` from the current working directory first, then falls back to the binary's parent directory.
 `YOUTRACK_HTTP_TIMEOUT` is optional and uses Go duration syntax such as `15s`, `45s`, or `2m`.
 `YOUTRACK_TOOL_PREFIX` defaults to `youtrack_`. Set it to an empty value to expose unprefixed tool names like `fetch` and `update_status`, or set it to a different prefix if your client expects one.
 `.env` parsing is intentionally simple: values must stay on one line, surrounding single or double quotes are stripped, and escape sequences like `\n` or `\"` are not interpreted.

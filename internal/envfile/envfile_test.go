@@ -113,3 +113,75 @@ func TestLoadSupportsLargeSingleLineValues(t *testing.T) {
 		t.Fatalf("unexpected large env value length: got %d want %d", len(got), len(largeValue))
 	}
 }
+
+func TestApplyDefaultIfPresentFallsBackToExecutableParent(t *testing.T) {
+	cwd := t.TempDir()
+	exeDir := t.TempDir()
+	envPath := filepath.Join(exeDir, ".env")
+	if err := os.WriteFile(envPath, []byte("YOUTRACK_URL=https://from-binary.test\n"), 0o644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	originalGetWorkingDirectory := getWorkingDirectory
+	originalGetExecutablePath := getExecutablePath
+	t.Cleanup(func() {
+		getWorkingDirectory = originalGetWorkingDirectory
+		getExecutablePath = originalGetExecutablePath
+	})
+
+	getWorkingDirectory = func() (string, error) { return cwd, nil }
+	getExecutablePath = func() (string, error) { return filepath.Join(exeDir, "youtrack-mcp"), nil }
+
+	if err := os.Unsetenv("YOUTRACK_URL"); err != nil {
+		t.Fatalf("unset env var: %v", err)
+	}
+
+	resolved, err := ApplyDefaultIfPresent(ApplyOptions{})
+	if err != nil {
+		t.Fatalf("apply default env file: %v", err)
+	}
+	if resolved != envPath {
+		t.Fatalf("unexpected resolved env path: got %q want %q", resolved, envPath)
+	}
+	if got := os.Getenv("YOUTRACK_URL"); got != "https://from-binary.test" {
+		t.Fatalf("unexpected YOUTRACK_URL: %q", got)
+	}
+}
+
+func TestApplyDefaultIfPresentPrefersWorkingDirectory(t *testing.T) {
+	cwd := t.TempDir()
+	exeDir := t.TempDir()
+	cwdEnvPath := filepath.Join(cwd, ".env")
+	exeEnvPath := filepath.Join(exeDir, ".env")
+	if err := os.WriteFile(cwdEnvPath, []byte("YOUTRACK_URL=https://from-cwd.test\n"), 0o644); err != nil {
+		t.Fatalf("write cwd env file: %v", err)
+	}
+	if err := os.WriteFile(exeEnvPath, []byte("YOUTRACK_URL=https://from-binary.test\n"), 0o644); err != nil {
+		t.Fatalf("write binary env file: %v", err)
+	}
+
+	originalGetWorkingDirectory := getWorkingDirectory
+	originalGetExecutablePath := getExecutablePath
+	t.Cleanup(func() {
+		getWorkingDirectory = originalGetWorkingDirectory
+		getExecutablePath = originalGetExecutablePath
+	})
+
+	getWorkingDirectory = func() (string, error) { return cwd, nil }
+	getExecutablePath = func() (string, error) { return filepath.Join(exeDir, "youtrack-mcp"), nil }
+
+	if err := os.Unsetenv("YOUTRACK_URL"); err != nil {
+		t.Fatalf("unset env var: %v", err)
+	}
+
+	resolved, err := ApplyDefaultIfPresent(ApplyOptions{})
+	if err != nil {
+		t.Fatalf("apply default env file: %v", err)
+	}
+	if resolved != cwdEnvPath {
+		t.Fatalf("unexpected resolved env path: got %q want %q", resolved, cwdEnvPath)
+	}
+	if got := os.Getenv("YOUTRACK_URL"); got != "https://from-cwd.test" {
+		t.Fatalf("unexpected YOUTRACK_URL: %q", got)
+	}
+}

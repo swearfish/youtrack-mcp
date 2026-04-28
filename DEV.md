@@ -66,7 +66,7 @@ There is no separate lint step today beyond `go fmt`.
 
 This project is deployed as a local binary, not as a hosted service.
 
-GitHub Actions runs the Go test suite on pushes and pull requests, and runs `make cross-build` on version tags to validate release artifacts.
+GitHub Actions runs the Go test suite and `make build` on pushes and pull requests, then runs `make cross-build` on version tags to validate release artifacts.
 
 Typical release flow:
 
@@ -148,6 +148,7 @@ It handles:
 ### Supporting packages
 
 - `internal/envfile` loads dotenv-style files
+- When `--env-file` is omitted, `.env` is auto-discovered from the current working directory first, then from the built binary's parent directory
 - `internal/config` holds env var names and constants
 - `YOUTRACK_HTTP_TIMEOUT` can override the default 30s HTTP client timeout with a Go duration string
 - `YOUTRACK_TOOL_PREFIX` defaults tool names to the `youtrack_` prefix; set it to an empty string to expose unprefixed names
