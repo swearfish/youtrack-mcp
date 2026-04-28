@@ -338,6 +338,18 @@ func TestWriteToolAnnotationsMarkCreateAndLinkNonDestructive(t *testing.T) {
 	}
 }
 
+func TestToolAnnotationsAdvertiseOpenWorld(t *testing.T) {
+	readOnlyAnnotations := readOnlyToolAnnotations()
+	if readOnlyAnnotations.OpenWorldHint == nil || !*readOnlyAnnotations.OpenWorldHint {
+		t.Fatalf("expected read-only annotations to advertise open-world access, got %+v", readOnlyAnnotations)
+	}
+
+	writeAnnotations := writeToolAnnotations(true, true)
+	if writeAnnotations.OpenWorldHint == nil || !*writeAnnotations.OpenWorldHint {
+		t.Fatalf("expected write annotations to advertise open-world access, got %+v", writeAnnotations)
+	}
+}
+
 func newFetchTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/api/issues" {

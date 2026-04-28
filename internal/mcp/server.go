@@ -117,7 +117,7 @@ func toolName(base string) string {
 func readOnlyToolAnnotations() *sdkmcp.ToolAnnotations {
 	return &sdkmcp.ToolAnnotations{
 		ReadOnlyHint:  true,
-		OpenWorldHint: boolPtr(false),
+		OpenWorldHint: boolPtr(true),
 	}
 }
 
@@ -125,7 +125,7 @@ func writeToolAnnotations(idempotent bool, destructive bool) *sdkmcp.ToolAnnotat
 	return &sdkmcp.ToolAnnotations{
 		DestructiveHint: boolPtr(destructive),
 		IdempotentHint:  idempotent,
-		OpenWorldHint:   boolPtr(false),
+		OpenWorldHint:   boolPtr(true),
 	}
 }
 
