@@ -22,7 +22,7 @@ Internal packages have narrow responsibilities:
 
 - `internal/mcp` — declares the exposed tools (`youtrack_search`, `youtrack_fetch`, `youtrack_fetch_markdown`, `youtrack_get_statuses`, `youtrack_update_status`, `youtrack_create`, `youtrack_update`, `youtrack_link`, `youtrack_unlink`) and translates MCP arg structs into `youtrack.Client` calls. The `resolveClientAndTicket` / `resolveClient` helpers centralize configured-credential and ticket validation for every tool.
 - `internal/youtrack` — HTTP client for the YouTrack REST API; field selection strings (`issueDetailFields`, `defaultStoryIssueFields`, etc.) are defined as package constants.
-- `internal/install` — picks the right config path per target/OS (with `VSCODE_MCP_CONFIG_PATH` / `COPILOT_MCP_CONFIG_PATH` overrides and `--workspace` for project-local configs), then upserts the entry while **preserving unrelated settings**. JSONC comments in existing configs are stripped before parsing via `stripJSONCComments`.
+- `internal/install` — picks the right config path per target/OS (with `VSCODE_MCP_CONFIG_PATH` / `COPILOT_MCP_CONFIG_PATH` overrides and `--workspace` for project-local configs), then upserts the entry while **preserving unrelated settings**. Existing JSONC configs are standardized before parsing via `hujson.Standardize`.
 - `internal/envfile` — loads dotenv values either from `--env-file` or, if absent, an auto-detected `.env` in the working directory. Applied in the root command's `PersistentPreRunE` before any subcommand executes.
 - `internal/config` — constants only: server name, env var names (`YOUTRACK_URL`, `YOUTRACK_API_TOKEN`), HTTP timeout, and MCP tool prefix configuration.
 
