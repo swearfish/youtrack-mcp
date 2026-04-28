@@ -226,6 +226,43 @@ func TestLinkTicketsQuotesPunctuatedRelation(t *testing.T) {
 	}
 }
 
+func TestLinkTicketsReturnsCanonicalRelationName(t *testing.T) {
+	t.Parallel()
+
+	state := newFakeState()
+	state.linkTypes["depends on"] = map[string]string{
+		"name":           "Depend",
+		"sourceToTarget": "depends on",
+		"targetToSource": "is required for",
+	}
+	state.issues["YT-40"] = map[string]any{
+		"id":                 "2-40",
+		"idReadable":         "YT-40",
+		"summary":            "Linked issue",
+		"description":        "Linked ticket description",
+		"project":            state.project,
+		"status_field_name":  "State",
+		"status":             "Open",
+		"available_statuses": []string{"Open"},
+		"customFields":       []map[string]any{},
+		"links":              []map[string]any{},
+		"attachments":        []map[string]any{},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(state.handle))
+	defer server.Close()
+
+	client := newHTTPTestClient(t, server.URL, server.Client())
+
+	linkResult, err := client.LinkTickets(context.Background(), "YT-39", "YT-40", "depends on")
+	if err != nil {
+		t.Fatalf("link tickets: %v", err)
+	}
+	if linkResult.Relation != "Depend" {
+		t.Fatalf("expected canonical relation name, got %+v", linkResult)
+	}
+}
+
 func TestUnlinkTicketsPreservesRequestedRelation(t *testing.T) {
 	t.Parallel()
 
@@ -815,6 +852,7 @@ type fakeState struct {
 	projects             []map[string]any
 	nextIssueNumber      int
 	issues               map[string]map[string]any
+	linkTypes            map[string]map[string]string
 	attachmentBodies     map[string][]byte
 	attachmentStatus     map[string]int
 	commandErrors        map[string][]string
@@ -827,6 +865,7 @@ func newFakeState() *fakeState {
 		project:          project,
 		projects:         []map[string]any{project},
 		nextIssueNumber:  100,
+		linkTypes:        map[string]map[string]string{},
 		attachmentBodies: map[string][]byte{},
 		attachmentStatus: map[string]int{},
 		commandErrors:    map[string][]string{},
@@ -1017,14 +1056,22 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		relation, linkedTicket := parseFakeLinkCommand(query)
+		linkType := map[string]any{
+			"name":           relation,
+			"sourceToTarget": relation,
+			"targetToSource": "is " + relation,
+		}
+		if canonical := s.linkTypes[strings.ToLower(relation)]; canonical != nil {
+			linkType = map[string]any{
+				"name":           canonical["name"],
+				"sourceToTarget": canonical["sourceToTarget"],
+				"targetToSource": canonical["targetToSource"],
+			}
+		}
 		issue["links"] = append(issue["links"].([]map[string]any), map[string]any{
 			"id":        "80-0",
 			"direction": "OUTWARD",
-			"linkType": map[string]any{
-				"name":           relation,
-				"sourceToTarget": relation,
-				"targetToSource": "is " + relation,
-			},
+			"linkType":  linkType,
 			"issues": []map[string]any{{
 				"id":         s.issues[linkedTicket]["id"],
 				"idReadable": linkedTicket,

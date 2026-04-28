@@ -91,10 +91,20 @@ func (c *Client) LinkTickets(ctx context.Context, ticketID string, linkedTicketI
 		return LinkResult{}, err
 	}
 
+	links, err := c.fetchIssueLinks(ctx, ticketID)
+	if err != nil {
+		return LinkResult{}, err
+	}
+
+	linkData, _, err := findMatchingLink(links, linkedTicketID, relation)
+	if err != nil {
+		return LinkResult{}, err
+	}
+
 	return LinkResult{
 		Ticket:       ticketID,
 		LinkedTicket: linkedTicketID,
-		Relation:     relation,
+		Relation:     canonicalRelationName(linkData, relation),
 	}, nil
 }
 
@@ -224,4 +234,9 @@ func findMatchingLink(links []map[string]any, linkedTicketID string, relation st
 	}
 
 	return matches[0].link, matches[0].issue, nil
+}
+
+func canonicalRelationName(link map[string]any, fallback string) string {
+	linkType := asMap(link["linkType"])
+	return firstNonEmpty(textValue(linkType["name"]), displayRelationName(link), strings.TrimSpace(fallback))
 }
