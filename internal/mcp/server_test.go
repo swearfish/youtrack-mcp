@@ -350,6 +350,16 @@ func TestToolAnnotationsAdvertiseOpenWorld(t *testing.T) {
 	}
 }
 
+func TestWriteToolAnnotationsCanDisableIdempotency(t *testing.T) {
+	annotations := writeToolAnnotations(false, true)
+	if annotations.IdempotentHint {
+		t.Fatalf("expected idempotent hint to stay false when requested, got %+v", annotations)
+	}
+	if annotations.DestructiveHint == nil || !*annotations.DestructiveHint {
+		t.Fatalf("expected destructive hint to stay true, got %+v", annotations)
+	}
+}
+
 func newFetchTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/api/issues" {

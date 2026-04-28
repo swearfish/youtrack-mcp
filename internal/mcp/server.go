@@ -88,7 +88,7 @@ func addTools(server *sdkmcp.Server) {
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("unlink"),
-		Annotations: writeToolAnnotations(true, true),
+		Annotations: writeToolAnnotations(false, true),
 		Description: "Remove an existing YouTrack link between `ticket` and `linked_ticket`. Provide `relation` when the ticket pair has multiple link types and you need to disambiguate which one to remove.",
 	}, unlinkYouTrackTickets)
 }
