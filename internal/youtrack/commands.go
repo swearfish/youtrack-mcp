@@ -87,7 +87,7 @@ func (c *Client) UpdateTicketStatus(ctx context.Context, ticketID string, status
 }
 
 func (c *Client) LinkTickets(ctx context.Context, ticketID string, linkedTicketID string, relation string) (LinkResult, error) {
-	if err := c.applyCommand(ctx, quoteCommandValue(relation)+" "+linkedTicketID, []string{ticketID}); err != nil {
+	if err := c.applyCommand(ctx, strings.TrimSpace(relation)+" "+linkedTicketID, []string{ticketID}); err != nil {
 		return LinkResult{}, err
 	}
 

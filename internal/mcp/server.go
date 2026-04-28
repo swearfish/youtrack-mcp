@@ -83,7 +83,7 @@ func addTools(server *sdkmcp.Server) {
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("link"),
 		Annotations: writeToolAnnotations(false, false),
-		Description: "Create a YouTrack link from `ticket` to `linked_ticket` using the provided `relation` command text, for example `relates to`. Multi-word or punctuated relation values are automatically quoted before sending the command to YouTrack.",
+		Description: "Create a YouTrack link from `ticket` to `linked_ticket` using the provided `relation` command text, for example `relates to`, `subtask of`, or `depends on`. Pass the relation as plain command text; YouTrack's command parser handles multi-word relations natively.",
 	}, linkYouTrackTickets)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{

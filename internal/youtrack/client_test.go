@@ -208,7 +208,7 @@ func TestUpdateTicketStatusQuotesPunctuatedStatus(t *testing.T) {
 	}
 }
 
-func TestLinkTicketsQuotesPunctuatedRelation(t *testing.T) {
+func TestLinkTicketsSendsRelationUnquoted(t *testing.T) {
 	t.Parallel()
 
 	state := newFakeState()
@@ -231,20 +231,15 @@ func TestLinkTicketsQuotesPunctuatedRelation(t *testing.T) {
 
 	client := newHTTPTestClient(t, server.URL, server.Client())
 
-	linkResult, err := client.LinkTickets(context.Background(), "YT-39", "YT-40", "depends on, maybe")
-	if err != nil {
+	if _, err := client.LinkTickets(context.Background(), "YT-39", "YT-40", "relates to"); err != nil {
 		t.Fatalf("link tickets: %v", err)
 	}
-	if linkResult.Relation != "depends on, maybe" {
-		t.Fatalf("expected relation to survive quoting, got %+v", linkResult)
-	}
 
-	links := state.issues["YT-39"]["links"].([]map[string]any)
-	if len(links) != 1 {
-		t.Fatalf("expected one link, got %d", len(links))
+	if len(state.commandQueries) != 1 {
+		t.Fatalf("expected one command query, got %d", len(state.commandQueries))
 	}
-	if got := links[0]["linkType"].(map[string]any)["name"]; got != "depends on, maybe" {
-		t.Fatalf("expected stored relation to preserve punctuation, got %v", got)
+	if got, want := state.commandQueries[0], "relates to YT-40"; got != want {
+		t.Fatalf("expected unquoted multi-word relation in wire format; got %q want %q", got, want)
 	}
 }
 
@@ -342,7 +337,7 @@ func TestLinkTicketsSurfacesCommandErrors(t *testing.T) {
 	t.Parallel()
 
 	state := newFakeState()
-	state.commandErrors["{invalid relation} YT-40"] = []string{"Unknown link type invalid relation"}
+	state.commandErrors["invalid relation YT-40"] = []string{"Unknown link type invalid relation"}
 	state.issues["YT-40"] = map[string]any{
 		"id":                 "2-40",
 		"idReadable":         "YT-40",
@@ -878,6 +873,7 @@ type fakeState struct {
 	attachmentBodies     map[string][]byte
 	attachmentStatus     map[string]int
 	commandErrors        map[string][]string
+	commandQueries       []string
 	publicProjectsStatus int
 }
 
@@ -1058,6 +1054,7 @@ func (s *fakeState) handle(w http.ResponseWriter, r *http.Request) {
 		var payload map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&payload)
 		query := payload["query"].(string)
+		s.commandQueries = append(s.commandQueries, query)
 		if commandErrors := s.commandErrors[query]; len(commandErrors) > 0 {
 			writeJSON(http.StatusOK, map[string]any{
 				"commands": []map[string]any{{
