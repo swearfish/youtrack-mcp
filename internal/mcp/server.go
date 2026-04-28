@@ -2,8 +2,10 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -17,6 +19,13 @@ import (
 
 var clientCache sync.Map
 
+const (
+	ticketResourceTemplate         = "youtrack://{ticket}"
+	ticketMarkdownResourceTemplate = "youtrack://{ticket}/markdown"
+	ticketResourceJSONMIMEType     = "application/json"
+	ticketResourceMarkdownMIMEType = "text/markdown"
+)
+
 func Run(ctx context.Context) error {
 	server := sdkmcp.NewServer(&sdkmcp.Implementation{
 		Name:    config.ServerName,
@@ -24,6 +33,7 @@ func Run(ctx context.Context) error {
 	}, nil)
 
 	addTools(server)
+	addResources(server)
 	return server.Run(ctx, &sdkmcp.StdioTransport{})
 }
 
@@ -81,6 +91,23 @@ func addTools(server *sdkmcp.Server) {
 		Annotations: writeToolAnnotations(true, true),
 		Description: "Remove an existing YouTrack link between `ticket` and `linked_ticket`. Provide `relation` when the ticket pair has multiple link types and you need to disambiguate which one to remove.",
 	}, unlinkYouTrackTickets)
+}
+
+func addResources(server *sdkmcp.Server) {
+	server.AddResourceTemplate(&sdkmcp.ResourceTemplate{
+		Name:        "ticket",
+		Title:       "YouTrack ticket",
+		Description: "Read a YouTrack ticket as structured JSON by URI, for example `youtrack://YT-39`. Attachments are exported inline the same way as the structured fetch tool.",
+		MIMEType:    ticketResourceJSONMIMEType,
+		URITemplate: ticketResourceTemplate,
+	}, readYouTrackTicketResource)
+	server.AddResourceTemplate(&sdkmcp.ResourceTemplate{
+		Name:        "ticket_markdown",
+		Title:       "YouTrack ticket Markdown",
+		Description: "Read a YouTrack ticket as Markdown by URI, for example `youtrack://YT-39/markdown`. Attachments are exported inline the same way as the Markdown fetch tool.",
+		MIMEType:    ticketResourceMarkdownMIMEType,
+		URITemplate: ticketMarkdownResourceTemplate,
+	}, readYouTrackTicketResource)
 }
 
 func toolName(base string) string {
@@ -271,6 +298,114 @@ func unlinkYouTrackTickets(ctx context.Context, req *sdkmcp.CallToolRequest, inp
 	return nil, result, err
 }
 
+func readYouTrackTicketResource(ctx context.Context, req *sdkmcp.ReadResourceRequest) (*sdkmcp.ReadResourceResult, error) {
+	ctx = withServerSessionLogger(ctx, req.Session)
+
+	uri := ""
+	if req != nil && req.Params != nil {
+		uri = req.Params.URI
+	}
+
+	resource, err := parseTicketResourceURI(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	client, ticketID, err := resolveClientAndTicket(resource.Ticket)
+	if err != nil {
+		return nil, err
+	}
+
+	switch resource.Format {
+	case ticketResourceFormatMarkdown:
+		story, err := client.FetchStory(ctx, ticketID, true, "")
+		if err != nil {
+			return nil, err
+		}
+		return &sdkmcp.ReadResourceResult{
+			Contents: []*sdkmcp.ResourceContents{{
+				URI:      uri,
+				MIMEType: ticketResourceMarkdownMIMEType,
+				Text:     story,
+			}},
+		}, nil
+	default:
+		issue, err := client.FetchTicket(ctx, ticketID, true, "")
+		if err != nil {
+			return nil, err
+		}
+		payload, err := json.MarshalIndent(issue, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("marshal ticket resource %q: %w", ticketID, err)
+		}
+		return &sdkmcp.ReadResourceResult{
+			Contents: []*sdkmcp.ResourceContents{{
+				URI:      uri,
+				MIMEType: ticketResourceJSONMIMEType,
+				Text:     string(payload),
+			}},
+		}, nil
+	}
+}
+
+type ticketResourceFormat string
+
+const (
+	ticketResourceFormatJSON     ticketResourceFormat = "json"
+	ticketResourceFormatMarkdown ticketResourceFormat = "markdown"
+)
+
+type ticketResourceRef struct {
+	Ticket string
+	Format ticketResourceFormat
+}
+
+func parseTicketResourceURI(uri string) (ticketResourceRef, error) {
+	parsed, err := url.Parse(strings.TrimSpace(uri))
+	if err != nil {
+		return ticketResourceRef{}, fmt.Errorf("invalid resource URI %q: %w", uri, err)
+	}
+	if !strings.EqualFold(parsed.Scheme, "youtrack") {
+		return ticketResourceRef{}, sdkmcp.ResourceNotFoundError(uri)
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return ticketResourceRef{}, sdkmcp.ResourceNotFoundError(uri)
+	}
+
+	ticket := strings.TrimSpace(parsed.Host)
+	pathParts := splitResourcePath(parsed.Path)
+	switch {
+	case ticket == "" && len(pathParts) == 0:
+		return ticketResourceRef{}, sdkmcp.ResourceNotFoundError(uri)
+	case ticket == "":
+		ticket = pathParts[0]
+		pathParts = pathParts[1:]
+	}
+	if ticket == "" {
+		return ticketResourceRef{}, sdkmcp.ResourceNotFoundError(uri)
+	}
+	format := ticketResourceFormatJSON
+	switch len(pathParts) {
+	case 0:
+	case 1:
+		if !strings.EqualFold(pathParts[0], string(ticketResourceFormatMarkdown)) {
+			return ticketResourceRef{}, sdkmcp.ResourceNotFoundError(uri)
+		}
+		format = ticketResourceFormatMarkdown
+	default:
+		return ticketResourceRef{}, sdkmcp.ResourceNotFoundError(uri)
+	}
+	return ticketResourceRef{Ticket: ticket, Format: format}, nil
+}
+
+func splitResourcePath(path string) []string {
+	trimmed := strings.Trim(strings.TrimSpace(path), "/")
+	if trimmed == "" {
+		return nil
+	}
+	return strings.Split(trimmed, "/")
+}
+
 func resolveClientAndTicket(ticket string) (*youtrack.Client, string, error) {
 	client, err := resolveClient()
 	if err != nil {
@@ -319,8 +454,15 @@ func withRequestLogger(ctx context.Context, req *sdkmcp.CallToolRequest) context
 	if req == nil || req.Session == nil {
 		return ctx
 	}
+	return withServerSessionLogger(ctx, req.Session)
+}
+
+func withServerSessionLogger(ctx context.Context, session *sdkmcp.ServerSession) context.Context {
+	if session == nil {
+		return ctx
+	}
 	return youtrack.WithLogger(ctx, func(logCtx context.Context, level slog.Level, msg string, args ...any) {
-		_ = req.Session.Log(logCtx, &sdkmcp.LoggingMessageParams{
+		_ = session.Log(logCtx, &sdkmcp.LoggingMessageParams{
 			Level: sdkmcp.LoggingLevel(loggingLevel(level)),
 			Data:  formatLogMessage(msg, args...),
 		})

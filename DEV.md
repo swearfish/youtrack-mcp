@@ -99,7 +99,7 @@ Top-level commands:
 
 ### MCP layer
 
-`internal/mcp/server.go` creates the MCP server with the Go MCP SDK and registers the public tools.
+`internal/mcp/server.go` creates the MCP server with the Go MCP SDK and registers the public tools and ticket resource templates.
 
 The MCP surface defaults to a `youtrack_` prefix so it does not collide with tools from other MCP servers. Set `YOUTRACK_TOOL_PREFIX=""` to opt out when the client already scopes tools by server:
 
@@ -112,6 +112,11 @@ The MCP surface defaults to a `youtrack_` prefix so it does not collide with too
 - `youtrack_update`
 - `youtrack_link`
 - `youtrack_unlink`
+
+It also exposes tickets as resources:
+
+- `youtrack://{ticket}` returns structured JSON with inline attachment export
+- `youtrack://{ticket}/markdown` returns the same Markdown representation as `youtrack_fetch_markdown`, with inline attachment export
 
 The handler layer is thin by design: it resolves credentials, validates required ticket IDs for ticket-scoped tools, then delegates to the domain client.
 

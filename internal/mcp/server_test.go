@@ -94,6 +94,116 @@ func TestMarkdownFetchReturnsText(t *testing.T) {
 	}
 }
 
+func TestReadTicketResourceReturnsJSON(t *testing.T) {
+	server := newFetchTestServer()
+	defer server.Close()
+
+	setYouTrackTestEnv(t, server.URL)
+
+	result, err := readYouTrackTicketResource(context.Background(), &sdkmcp.ReadResourceRequest{
+		Params: &sdkmcp.ReadResourceParams{URI: "youtrack://YT-39"},
+	})
+	if err != nil {
+		t.Fatalf("read resource: %v", err)
+	}
+	if result == nil || len(result.Contents) != 1 {
+		t.Fatalf("expected one resource content entry, got %+v", result)
+	}
+	content := result.Contents[0]
+	if content.URI != "youtrack://YT-39" {
+		t.Fatalf("unexpected resource URI: %+v", content)
+	}
+	if content.MIMEType != ticketResourceJSONMIMEType {
+		t.Fatalf("unexpected resource MIME type: %+v", content)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(content.Text), &payload); err != nil {
+		t.Fatalf("resource should contain JSON: %v", err)
+	}
+	if payload["ticket"] != "YT-39" || payload["summary"] != "Update tickets" {
+		t.Fatalf("unexpected resource payload: %+v", payload)
+	}
+	attachments, ok := payload["attachments"].([]any)
+	if !ok || len(attachments) != 2 {
+		t.Fatalf("expected JSON resource attachments, got %+v", payload["attachments"])
+	}
+	firstAttachment, ok := attachments[0].(map[string]any)
+	if !ok || firstAttachment["content"] != "hello from text attachment" {
+		t.Fatalf("expected inline attachment content in JSON resource, got %+v", attachments[0])
+	}
+}
+
+func TestReadTicketMarkdownResourceReturnsMarkdown(t *testing.T) {
+	server := newFetchTestServer()
+	defer server.Close()
+
+	setYouTrackTestEnv(t, server.URL)
+
+	result, err := readYouTrackTicketResource(context.Background(), &sdkmcp.ReadResourceRequest{
+		Params: &sdkmcp.ReadResourceParams{URI: "youtrack://YT-39/markdown"},
+	})
+	if err != nil {
+		t.Fatalf("read markdown resource: %v", err)
+	}
+	if result == nil || len(result.Contents) != 1 {
+		t.Fatalf("expected one resource content entry, got %+v", result)
+	}
+	content := result.Contents[0]
+	if content.URI != "youtrack://YT-39/markdown" {
+		t.Fatalf("unexpected markdown resource URI: %+v", content)
+	}
+	if content.MIMEType != ticketResourceMarkdownMIMEType {
+		t.Fatalf("unexpected markdown resource MIME type: %+v", content)
+	}
+	if !strings.HasPrefix(content.Text, "# YT-39: Update tickets") || !strings.Contains(content.Text, "hello from text attachment") {
+		t.Fatalf("unexpected markdown resource content: %q", content.Text)
+	}
+}
+
+func TestParseTicketResourceURI(t *testing.T) {
+	t.Run("host form defaults to JSON", func(t *testing.T) {
+		resource, err := parseTicketResourceURI("youtrack://YT-39")
+		if err != nil {
+			t.Fatalf("parse host form: %v", err)
+		}
+		if resource.Ticket != "YT-39" || resource.Format != ticketResourceFormatJSON {
+			t.Fatalf("unexpected resource ref: %+v", resource)
+		}
+	})
+
+	t.Run("host form markdown", func(t *testing.T) {
+		resource, err := parseTicketResourceURI("youtrack://YT-39/markdown")
+		if err != nil {
+			t.Fatalf("parse markdown form: %v", err)
+		}
+		if resource.Ticket != "YT-39" || resource.Format != ticketResourceFormatMarkdown {
+			t.Fatalf("unexpected resource ref: %+v", resource)
+		}
+	})
+
+	t.Run("path form", func(t *testing.T) {
+		resource, err := parseTicketResourceURI("youtrack:///YT-39/markdown")
+		if err != nil {
+			t.Fatalf("parse path form: %v", err)
+		}
+		if resource.Ticket != "YT-39" || resource.Format != ticketResourceFormatMarkdown {
+			t.Fatalf("unexpected resource ref: %+v", resource)
+		}
+	})
+
+	t.Run("invalid URI", func(t *testing.T) {
+		if _, err := parseTicketResourceURI("https://example.com/YT-39"); err == nil {
+			t.Fatalf("expected invalid resource URI to fail")
+		}
+	})
+
+	t.Run("invalid suffix", func(t *testing.T) {
+		if _, err := parseTicketResourceURI("youtrack://YT-39/json"); err == nil {
+			t.Fatalf("expected invalid resource suffix to fail")
+		}
+	})
+}
+
 func TestStructuredFetchSupportsAttachments(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()
