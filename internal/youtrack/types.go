@@ -100,6 +100,12 @@ type Issue struct {
 	Attachments        []IssueAttachment  `json:"attachments,omitempty"`
 }
 
+type Comment struct {
+	ID     string `json:"id"`
+	Ticket string `json:"ticket"`
+	Text   string `json:"text"`
+}
+
 type IssueCustomField struct {
 	Name  string `json:"name,omitempty"`
 	Type  string `json:"type,omitempty"`

@@ -277,6 +277,79 @@ func TestUpdateRejectsMissingFieldsBeforeCallingYouTrack(t *testing.T) {
 	}
 }
 
+func TestPostCommentReturnsCreatedComment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/issues/YT-39/comments" {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		var payload map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		if payload["text"] != "Investigating" {
+			t.Errorf("unexpected comment payload: %+v", payload)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "4-14", "text": "Investigating"})
+	}))
+	defer server.Close()
+
+	setYouTrackTestEnv(t, server.URL)
+	result, comment, err := postYouTrackComment(context.Background(), nil, postCommentArgs{
+		Ticket: "YT-39",
+		Text:   "Investigating",
+	})
+	if err != nil {
+		t.Fatalf("post comment: %v", err)
+	}
+	if result != nil || comment.ID != "4-14" || comment.Ticket != "YT-39" || comment.Text != "Investigating" {
+		t.Fatalf("unexpected comment result: %+v, %+v", result, comment)
+	}
+}
+
+func TestPostCommentRequiresTicket(t *testing.T) {
+	server := newFetchTestServer()
+	defer server.Close()
+	setYouTrackTestEnv(t, server.URL)
+
+	_, _, err := postYouTrackComment(context.Background(), nil, postCommentArgs{Text: "Investigating"})
+	if err == nil || !strings.Contains(err.Error(), "ticket is required") {
+		t.Fatalf("expected missing ticket error, got %v", err)
+	}
+}
+
+func TestPostCommentToolIsExposedOverMCP(t *testing.T) {
+	server := sdkmcp.NewServer(&sdkmcp.Implementation{Name: "youtrack-test", Version: "test"}, nil)
+	addTools(server)
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "test"}, nil)
+	clientTransport, serverTransport := sdkmcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
+	if err != nil {
+		t.Fatalf("connect MCP server: %v", err)
+	}
+	defer serverSession.Close()
+	clientSession, err := client.Connect(context.Background(), clientTransport, nil)
+	if err != nil {
+		t.Fatalf("connect MCP client: %v", err)
+	}
+	defer clientSession.Close()
+
+	tools, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	for _, tool := range tools.Tools {
+		if tool.Name != toolName("post_comment") {
+			continue
+		}
+		if tool.Annotations == nil || tool.Annotations.IdempotentHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint {
+			t.Fatalf("unexpected post_comment annotations: %+v", tool.Annotations)
+		}
+		return
+	}
+	t.Fatalf("post_comment tool was not registered")
+}
+
 func TestResolveClientCachesByConfiguredTuple(t *testing.T) {
 	server := newFetchTestServer()
 	defer server.Close()

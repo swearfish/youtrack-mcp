@@ -110,6 +110,7 @@ The MCP surface defaults to a `youtrack_` prefix so it does not collide with too
 - `youtrack_update_status`
 - `youtrack_create`
 - `youtrack_update`
+- `youtrack_post_comment`
 - `youtrack_link`
 - `youtrack_unlink`
 
@@ -126,6 +127,7 @@ The handler layer is thin by design: it resolves credentials, validates required
 
 - `client.go` for client construction and URL validation
 - `issues.go` for ticket fetch/search/create/update flows
+- `comments.go` for posting ticket comments
 - `commands.go` for statuses, links, and YouTrack command execution
 - `attachments.go` for attachment download/storage and markdown rendering helpers
 - `http.go` for shared request/retry/body-limit handling

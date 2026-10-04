@@ -4,7 +4,7 @@ Standalone MCP server for YouTrack, implemented in Go.
 
 ## Features
 
-- exposes a configurable YouTrack-only MCP toolset, defaulting to `youtrack_search`, `youtrack_fetch`, `youtrack_fetch_markdown`, `youtrack_get_statuses`, `youtrack_update_status`, `youtrack_create`, `youtrack_update`, `youtrack_link`, `youtrack_unlink`
+- exposes a configurable YouTrack-only MCP toolset, defaulting to `youtrack_search`, `youtrack_fetch`, `youtrack_fetch_markdown`, `youtrack_get_statuses`, `youtrack_update_status`, `youtrack_create`, `youtrack_update`, `youtrack_post_comment`, `youtrack_link`, `youtrack_unlink`
 - exports YouTrack tickets as MCP resources via `youtrack://TICKET-1234` and `youtrack://TICKET-1234/markdown` URIs
 - runs as a local stdio MCP server for IDE or CLI integrations
 - registers itself into VS Code or Copilot MCP config, globally or per workspace
@@ -85,6 +85,7 @@ If you register from a development checkout, prefer a built binary or pass `--bi
 | `youtrack_update_status` | Change a ticket status |
 | `youtrack_create` | Create a ticket |
 | `youtrack_update` | Update summary, description, or custom fields |
+| `youtrack_post_comment` | Post a plain comment to a ticket using YouTrack's default visibility and notifications |
 | `youtrack_link` | Link one ticket to another |
 | `youtrack_unlink` | Remove a ticket link |
 

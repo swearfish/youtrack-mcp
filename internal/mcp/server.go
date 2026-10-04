@@ -81,6 +81,12 @@ func addTools(server *sdkmcp.Server) {
 	}, updateYouTrackTicket)
 
 	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        toolName("post_comment"),
+		Annotations: writeToolAnnotations(false, false),
+		Description: "Post a plain comment to an explicit YouTrack `ticket`. Provide non-blank `text`. Uses YouTrack's default visibility and notification behavior.",
+	}, postYouTrackComment)
+
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
 		Name:        toolName("link"),
 		Annotations: writeToolAnnotations(false, false),
 		Description: "Create a YouTrack link from `ticket` to `linked_ticket` using the provided `relation` command text, for example `relates to`, `subtask of`, or `depends on`. Pass the relation as plain command text; YouTrack's command parser handles multi-word relations natively.",
@@ -166,6 +172,11 @@ type updateTicketArgs struct {
 	Summary      *string                    `json:"summary,omitempty" jsonschema:"Optional replacement summary. Provide this, description, or custom_fields; at least one update field is required. Set it to an empty string to clear the summary."`
 	Description  *string                    `json:"description,omitempty" jsonschema:"Optional replacement description. Provide this, summary, or custom_fields; at least one update field is required. Set it to an empty string to clear the description."`
 	CustomFields youtrack.CustomFieldsInput `json:"custom_fields,omitempty" jsonschema:"Optional YouTrack custom field object or array of field objects. Provide this, summary, or description; at least one update field is required. Pass real JSON, not a JSON-encoded string."`
+}
+
+type postCommentArgs struct {
+	Ticket string `json:"ticket" jsonschema:"Required YouTrack ticket ID. This server does not infer tickets from branch names or repo paths."`
+	Text   string `json:"text" jsonschema:"Required non-blank comment text to post to the ticket."`
 }
 
 type updateStatusArgs struct {
@@ -273,6 +284,17 @@ func updateYouTrackTicket(ctx context.Context, req *sdkmcp.CallToolRequest, inpu
 	}
 
 	result, err := client.UpdateTicket(ctx, ticketID, input.Summary, input.Description, input.CustomFields)
+	return nil, result, err
+}
+
+func postYouTrackComment(ctx context.Context, req *sdkmcp.CallToolRequest, input postCommentArgs) (*sdkmcp.CallToolResult, youtrack.Comment, error) {
+	ctx = withRequestLogger(ctx, req)
+	client, ticketID, err := resolveClientAndTicket(input.Ticket)
+	if err != nil {
+		return nil, youtrack.Comment{}, err
+	}
+
+	result, err := client.PostComment(ctx, ticketID, input.Text)
 	return nil, result, err
 }
 

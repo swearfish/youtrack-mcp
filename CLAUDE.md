@@ -20,7 +20,7 @@ Standalone Go binary that exposes a YouTrack-only MCP server over stdio plus an 
 
 Internal packages have narrow responsibilities:
 
-- `internal/mcp` — declares the exposed tools (`youtrack_search`, `youtrack_fetch`, `youtrack_fetch_markdown`, `youtrack_get_statuses`, `youtrack_update_status`, `youtrack_create`, `youtrack_update`, `youtrack_link`, `youtrack_unlink`) and translates MCP arg structs into `youtrack.Client` calls. The `resolveClientAndTicket` / `resolveClient` helpers centralize configured-credential and ticket validation for every tool.
+- `internal/mcp` — declares the exposed tools (`youtrack_search`, `youtrack_fetch`, `youtrack_fetch_markdown`, `youtrack_get_statuses`, `youtrack_update_status`, `youtrack_create`, `youtrack_update`, `youtrack_post_comment`, `youtrack_link`, `youtrack_unlink`) and translates MCP arg structs into `youtrack.Client` calls. The `resolveClientAndTicket` / `resolveClient` helpers centralize configured-credential and ticket validation for every tool.
 - `internal/youtrack` — HTTP client for the YouTrack REST API; field selection strings (`issueDetailFields`, `defaultStoryIssueFields`, etc.) are defined as package constants.
 - `internal/install` — picks the right config path per target/OS (with `VSCODE_MCP_CONFIG_PATH` / `COPILOT_MCP_CONFIG_PATH` overrides and `--workspace` for project-local configs), then upserts the entry while **preserving unrelated settings**. Existing JSONC configs are standardized before parsing via `hujson.Standardize`.
 - `internal/envfile` — loads dotenv values either from `--env-file` or, if absent, an auto-detected `.env` in the working directory and then the binary's parent directory. Applied in the root command's `PersistentPreRunE` before any subcommand executes.
